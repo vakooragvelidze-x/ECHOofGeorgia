@@ -26,14 +26,8 @@ export default function HomePage() {
 
         <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between rounded-full border border-[#f4efe6]/10 bg-[#120d0d]/65 px-5 py-3.5 backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className="relative h-10 w-40 overflow-hidden">
-  <Image
-    src="/brand/echo-georgia-logo-nav.png"
-    alt="ECHO Georgia"
-    fill
-    priority
-    className="object-contain object-left"
-  />
+            <div className="pl-1">
+  <p className="text-sm font-bold tracking-[0.22em] text-[#d8c08a]">ECHO</p>
 </div>
           </div>
 
@@ -56,10 +50,22 @@ export default function HomePage() {
 
         <div className="relative z-10 mx-auto grid min-h-[calc(100vh-92px)] max-w-7xl items-center gap-12 py-14 lg:grid-cols-[1fr_0.85fr]">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-4 py-2 text-sm text-[#d8c08a]">
-              <Sparkles size={16} />
-              Georgian AI cultural archive
-            </div>
+  <div className="mb-8">
+    <div className="relative h-24 w-[18rem] sm:h-28 sm:w-[22rem]">
+      <Image
+        src="/brand/echo-georgia-logo-nav.png"
+        alt="ECHO Georgia"
+        fill
+        priority
+        className="object-contain object-left"
+      />
+    </div>
+  </div>
+
+  <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-4 py-2 text-sm text-[#d8c08a]">
+    <Sparkles size={16} />
+    Georgian AI cultural archive
+  </div>
 
             <h1 className="text-[clamp(3rem,7vw,7rem)] font-black leading-[0.9] tracking-[-0.07em]">
               Echoes of Georgia
