@@ -42,8 +42,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     {
       id: 1,
       role: "assistant",
-      text: `გამარჯობა. მე ვარ ${figure.nameKa}-ს AI ინტერპრეტაცია. შეგიძლია მკითხო ${figure.mood}-ზე, ან აირჩიო ერთ-ერთი კითხვა ქვემოთ.`,
-    },
+text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკითხე, რა გაინტერესებს.`,    },
   ]);
 
   const updateScrollThumb = useCallback(() => {

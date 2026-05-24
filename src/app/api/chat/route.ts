@@ -78,13 +78,19 @@ export async function POST(request: Request) {
       model: process.env.OPENAI_MODEL || "gpt-5.5",
       instructions: systemPrompt,
       input: `
-Continue this conversation as the historical AI interpretation.
+Continue this conversation in first person as ${figure.nameKa}.
 
 Conversation:
 ${conversation}
 
 Answer only the latest user message.
-Keep the answer natural, respectful, historically careful, and useful.
+
+Important:
+- Speak in first person by default.
+- Do not mention that you are AI unless the user directly asks if you are real, alive, or literally ${figure.nameKa}.
+- Do not sound defensive.
+- Give a real answer, not a disclaimer.
+- Keep the answer natural, thoughtful, and useful.
 `,
     });
 
