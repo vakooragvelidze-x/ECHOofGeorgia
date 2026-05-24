@@ -3,6 +3,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { figures } from "@/data/figures";
 
+function getFigureImagePosition(slug: string) {
+  const positions: Record<string, string> = {
+    "ilia-chavchavadze": "center 22%",
+    "vazha-pshavela": "center 20%",
+    "shota-rustaveli": "center 30%",
+    "tamar-mepe": "center 28%",
+    "niko-pirosmani": "center 30%",
+  };
+
+  return positions[slug] ?? "center 28%";
+}
+
 export default function HomePage() {
   const featuredFigure = figures[0];
 
@@ -20,7 +32,9 @@ export default function HomePage() {
 
             <div>
               <p className="text-sm font-bold tracking-[0.2em]">ECHO</p>
-              <p className="text-[11px] text-[#b8aea3]">Voices of Georgian History</p>
+              <p className="text-[11px] text-[#b8aea3]">
+                Voices of Georgian History
+              </p>
             </div>
           </div>
 
@@ -68,7 +82,10 @@ export default function HomePage() {
                 className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#c9a45c] px-7 py-4 text-base font-black text-[#140d0d] transition hover:bg-[#e2c071]"
               >
                 ნახე პიროვნებები
-                <ArrowRight className="transition group-hover:translate-x-1" size={18} />
+                <ArrowRight
+                  className="transition group-hover:translate-x-1"
+                  size={18}
+                />
               </a>
 
               <Link
@@ -93,7 +110,9 @@ export default function HomePage() {
                     <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#c9a45c]">
                       Featured dialogue
                     </p>
-                    <h2 className="mt-2 text-2xl font-black">{featuredFigure.nameKa}</h2>
+                    <h2 className="mt-2 text-2xl font-black">
+                      {featuredFigure.nameKa}
+                    </h2>
                   </div>
 
                   <span className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs text-[#d8c08a]">
@@ -128,6 +147,11 @@ export default function HomePage() {
                         alt={featuredFigure.nameKa}
                         fill
                         sizes="165px"
+                        style={{
+                          objectPosition: getFigureImagePosition(
+                            featuredFigure.slug
+                          ),
+                        }}
                         className="object-cover grayscale sepia-[0.2] contrast-110 transition duration-500 group-hover:scale-105"
                         priority
                       />
@@ -146,11 +170,17 @@ export default function HomePage() {
                     <p className="text-xs text-[#b8aea3]">Sources</p>
                   </div>
                   <div className="rounded-2xl bg-[#f4efe6]/6 p-4">
-                    <MessageCircle className="mx-auto mb-2 text-[#c9a45c]" size={19} />
+                    <MessageCircle
+                      className="mx-auto mb-2 text-[#c9a45c]"
+                      size={19}
+                    />
                     <p className="text-xs text-[#b8aea3]">Dialogue</p>
                   </div>
                   <div className="rounded-2xl bg-[#f4efe6]/6 p-4">
-                    <ShieldCheck className="mx-auto mb-2 text-[#c9a45c]" size={19} />
+                    <ShieldCheck
+                      className="mx-auto mb-2 text-[#c9a45c]"
+                      size={19}
+                    />
                     <p className="text-xs text-[#b8aea3]">Careful</p>
                   </div>
                 </div>
@@ -191,6 +221,9 @@ export default function HomePage() {
                       alt={figure.nameKa}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
+                      style={{
+                        objectPosition: getFigureImagePosition(figure.slug),
+                      }}
                       className="object-cover grayscale sepia-[0.2] opacity-75 transition duration-500 group-hover:scale-105 group-hover:opacity-90"
                     />
                   ) : null}
@@ -217,7 +250,10 @@ export default function HomePage() {
 
                   <div className="mt-6 inline-flex items-center gap-2 text-sm font-black text-[#f4efe6]">
                     საუბრის გახსნა
-                    <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                    <ArrowRight
+                      size={16}
+                      className="transition group-hover:translate-x-1"
+                    />
                   </div>
                 </div>
               </Link>
