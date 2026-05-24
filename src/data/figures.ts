@@ -1,4 +1,5 @@
 export type Figure = {
+  
   iconImage?: string;
   image?: string;
   slug: string;
@@ -43,7 +44,8 @@ iconImage: "/figures/icons/ilia-icon.jpg",
       "რა არის ადამიანის მთავარი პასუხისმგებლობა საზოგადოების წინაშე?",
     ],
   },
-  {
+  {image: "/figures/vazha-pshavela.jpg",
+iconImage: "/figures/vazha-icon.jpg",
     slug: "vazha-pshavela",
     nameKa: "ვაჟა-ფშაველა",
     nameEn: "Vazha-Pshavela",
