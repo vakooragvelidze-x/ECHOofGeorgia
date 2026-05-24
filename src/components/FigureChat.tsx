@@ -254,13 +254,10 @@ if (avatarImage) {
       <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7">
         <div className="mb-5 flex items-center gap-3">
           <Sparkles className="text-[#c9a45c]" size={22} />
-          <h2 className="text-2xl font-black">სასაუბრო კითხვები</h2>
-        </div>
+     <h2 className="text-2xl font-black">კითხვები</h2>      
+  </div>
 
-        <p className="mb-5 text-sm leading-7 text-[#b8aea3]">
-          მომხმარებელს არ უნდა უწევდეს ფიქრი, რა ჰკითხოს. ამიტომ თითოეულ
-          ისტორიულ პერსონას ექნება ძლიერი საწყისი კითხვები.
-        </p>
+        
 
         <div className="space-y-3">
           {figure.questions.map((question) => (
@@ -278,18 +275,9 @@ if (avatarImage) {
       </div>
 
       <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-4 sm:p-7">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.24em] text-[#c9a45c]">
-              Dialogue room
-            </p>
-            <h2 className="mt-2 text-2xl font-black">საუბარი</h2>
-          </div>
-
-          <span className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs text-[#d8c08a]">
-            AI route
-          </span>
-        </div>
+        <div className="mb-5">
+  <h2 className="text-3xl font-black">საუბარი</h2>
+</div>
 
         <div className="relative">
           <div
@@ -384,10 +372,7 @@ if (avatarImage) {
           </button>
         </div>
 
-        <p className="mt-4 text-xs leading-6 text-[#756b63]">
-          პასუხები ახლა მოდის AI route-დან. შემდეგ ეტაპზე დაემატება წყაროების
-          ბაზა, რომ თითოეულმა პერსონამ უფრო ზუსტად და სანდოდ უპასუხოს.
-        </p>
+        
       </div>
     </section>
   );
