@@ -1,4 +1,5 @@
 import FigureChat from "@/components/FigureChat";
+import FigureKnowledgePanel from "@/components/FigureKnowledgePanel";
 import { figures, getFigureBySlug } from "@/data/figures";
 import {
   ArrowLeft,
@@ -185,6 +186,8 @@ export default async function FigurePage({
             </div>
           </div>
         </div>
+
+        <FigureKnowledgePanel figure={figure} />
 
         <FigureChat figure={figure} />
       </section>
