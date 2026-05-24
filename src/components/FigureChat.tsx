@@ -108,7 +108,7 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
     let index = 0;
 
     const typingStep = 1;
-    const typingSpeed = 100; // smoother, about 25% faster
+    const typingSpeed = 40; // smoother, about 25% faster
 
     setMessages((current) => [
       ...current,
