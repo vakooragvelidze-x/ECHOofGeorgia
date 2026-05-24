@@ -26,9 +26,15 @@ export default function HomePage() {
 
         <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between rounded-full border border-[#f4efe6]/10 bg-[#120d0d]/65 px-5 py-3.5 backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className="pl-1">
-  <p className="text-sm font-bold tracking-[0.22em] text-[#d8c08a]">ECHO</p>
-</div>
+            <Link href="/" className="relative block h-10 w-10 shrink-0">
+  <Image
+    src="/brand/echo-symbol.png"
+    alt="ECHO Georgia"
+    fill
+    priority
+    className="object-contain"
+  />
+</Link>
           </div>
 
           <div className="hidden items-center gap-7 text-sm text-[#b8aea3] md:flex">
