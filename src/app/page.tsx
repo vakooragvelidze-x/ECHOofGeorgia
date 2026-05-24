@@ -26,16 +26,15 @@ export default function HomePage() {
 
         <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between rounded-full border border-[#f4efe6]/10 bg-[#120d0d]/65 px-5 py-3.5 backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-full border border-[#c9a45c]/35 bg-[#c9a45c]/10 text-xs font-black tracking-[0.14em] text-[#c9a45c]">
-              EC
-            </div>
-
-            <div>
-              <p className="text-sm font-bold tracking-[0.2em]">ECHO</p>
-              <p className="text-[11px] text-[#b8aea3]">
-                Voices of Georgian History
-              </p>
-            </div>
+            <div className="relative h-10 w-40 overflow-hidden">
+  <Image
+    src="/brand/echo-georgia-logo-nav.png"
+    alt="ECHO Georgia"
+    fill
+    priority
+    className="object-contain object-left"
+  />
+</div>
           </div>
 
           <div className="hidden items-center gap-7 text-sm text-[#b8aea3] md:flex">
