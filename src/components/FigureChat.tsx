@@ -1,8 +1,8 @@
 "use client";
 
 import type { Figure } from "@/data/figures";
+import { Bot, Loader2, Send, Sparkles, Square, UserRound } from "lucide-react";
 import Image from "next/image";
-import { Bot, Loader2, Send, Sparkles, UserRound } from "lucide-react";
 import {
   KeyboardEvent,
   MouseEvent,
@@ -31,6 +31,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const typingIntervalRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef<number | null>(null);
 
   const [scrollThumb, setScrollThumb] = useState<ScrollThumb>({
     top: 0,
@@ -42,7 +44,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     {
       id: 1,
       role: "assistant",
-text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკითხე, რა გაინტერესებს.`,    },
+      text:
+        figure.greeting ??
+        `გამარჯობა, მე ${figure.nameKa} ვარ. მკითხე, რა გაინტერესებს.`,
+    },
   ]);
 
   const updateScrollThumb = useCallback(() => {
@@ -91,24 +96,37 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
 
   useEffect(() => {
     updateScrollThumb();
-
     window.addEventListener("resize", updateScrollThumb);
 
     return () => {
       window.removeEventListener("resize", updateScrollThumb);
-
-      if (typingIntervalRef.current) {
-        window.clearInterval(typingIntervalRef.current);
-      }
+      stopGeneration();
     };
   }, [updateScrollThumb]);
 
-  function animateAssistantResponse(fullText: string) {
+  function stopGeneration() {
+    activeRequestIdRef.current = null;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    if (typingIntervalRef.current) {
+      window.clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+
+    setTypingMessageId(null);
+    setIsLoading(false);
+  }
+
+  function animateAssistantResponse(fullText: string, requestId: number) {
     const assistantId = Date.now() + 1;
     let index = 0;
 
     const typingStep = 1;
-    const typingSpeed = 40; // smoother, about 25% faster
+    const typingSpeed = 52;
 
     setMessages((current) => [
       ...current,
@@ -126,6 +144,17 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
     }
 
     typingIntervalRef.current = window.setInterval(() => {
+      if (activeRequestIdRef.current !== requestId) {
+        if (typingIntervalRef.current) {
+          window.clearInterval(typingIntervalRef.current);
+        }
+
+        typingIntervalRef.current = null;
+        setTypingMessageId(null);
+        setIsLoading(false);
+        return;
+      }
+
       index += typingStep;
 
       setMessages((current) =>
@@ -145,6 +174,8 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
         }
 
         typingIntervalRef.current = null;
+        abortControllerRef.current = null;
+        activeRequestIdRef.current = null;
         setTypingMessageId(null);
         setIsLoading(false);
       }
@@ -157,8 +188,14 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
     if (!finalMessage) return;
     if (isLoading) return;
 
+    const requestId = Date.now();
+    const controller = new AbortController();
+
+    activeRequestIdRef.current = requestId;
+    abortControllerRef.current = controller;
+
     const userMessage: Message = {
-      id: Date.now(),
+      id: requestId,
       role: "user",
       text: finalMessage,
     };
@@ -168,6 +205,7 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
+    setTypingMessageId(null);
 
     try {
       const response = await fetch("/api/chat", {
@@ -176,6 +214,7 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
           "Content-Type": "application/json",
         },
         cache: "no-store",
+        signal: controller.signal,
         body: JSON.stringify({
           slug: figure.slug,
           messages: updatedMessages.map((message) => ({
@@ -185,7 +224,15 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
         }),
       });
 
+      if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
+        return;
+      }
+
       const rawText = await response.text();
+
+      if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
+        return;
+      }
 
       let data: { text?: string; error?: string };
 
@@ -201,12 +248,32 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
         throw new Error(data.error || "Failed to generate response.");
       }
 
-      animateAssistantResponse(data.text || "პასუხი ვერ მივიღე. სცადე თავიდან.");
+      if (activeRequestIdRef.current === requestId && !controller.signal.aborted) {
+        animateAssistantResponse(
+          data.text || "პასუხი ვერ მივიღე. სცადე თავიდან.",
+          requestId
+        );
+      }
     } catch (error) {
+      const isAbortError =
+        error instanceof DOMException && error.name === "AbortError";
+
+      if (
+        isAbortError ||
+        activeRequestIdRef.current !== requestId ||
+        controller.signal.aborted
+      ) {
+        setIsLoading(false);
+        setTypingMessageId(null);
+        abortControllerRef.current = null;
+        return;
+      }
+
       console.error("Chat request error:", error);
 
       animateAssistantResponse(
-        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე API key, მოდელის სახელი და სცადე თავიდან."
+        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე API key, მოდელის სახელი და სცადე თავიდან.",
+        requestId
       );
     }
   }
@@ -214,33 +281,42 @@ text: `გამარჯობა, მე ${figure.nameKa} ვარ. მკი
   function handleSendClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    sendMessage();
+
+    if (isLoading) {
+      stopGeneration();
+      return;
+    }
+
+    void sendMessage();
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       event.preventDefault();
       event.stopPropagation();
-      sendMessage();
+
+      if (!isLoading) {
+        void sendMessage();
+      }
     }
   }
 
   function AssistantAvatar() {
     const avatarImage = figure.iconImage ?? figure.image;
 
-if (avatarImage) {
-  return (
-    <div className="relative mt-1 h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
-      <Image
-        src={avatarImage}
-        alt={figure.nameKa}
-        fill
-        sizes="36px"
-        className="object-cover grayscale sepia-[0.22] contrast-110"
-      />
-    </div>
-  );
-}
+    if (avatarImage) {
+      return (
+        <div className="relative mt-1 h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
+          <Image
+            src={avatarImage}
+            alt={figure.nameKa}
+            fill
+            sizes="36px"
+            className="object-cover grayscale sepia-[0.22] contrast-110"
+          />
+        </div>
+      );
+    }
 
     return (
       <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
@@ -254,17 +330,15 @@ if (avatarImage) {
       <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7">
         <div className="mb-5 flex items-center gap-3">
           <Sparkles className="text-[#c9a45c]" size={22} />
-     <h2 className="text-2xl font-black">კითხვები</h2>      
-  </div>
-
-        
+          <h2 className="text-2xl font-black">კითხვები</h2>
+        </div>
 
         <div className="space-y-3">
           {figure.questions.map((question) => (
             <button
               key={question}
               type="button"
-              onClick={() => sendMessage(question)}
+              onClick={() => void sendMessage(question)}
               disabled={isLoading}
               className="w-full rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-4 text-left text-sm leading-6 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -276,8 +350,8 @@ if (avatarImage) {
 
       <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-4 sm:p-7">
         <div className="mb-5">
-  <h2 className="text-3xl font-black">საუბარი</h2>
-</div>
+          <h2 className="text-3xl font-black">საუბარი</h2>
+        </div>
 
         <div className="relative">
           <div
@@ -352,27 +426,27 @@ if (avatarImage) {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="დაწერე კითხვა..."
-            disabled={isLoading}
-            className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60"
+            placeholder={
+              isLoading ? "პასუხის გაჩერება შეგიძლია..." : "დაწერე კითხვა..."
+            }
+            className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40"
           />
 
           <button
             type="button"
             onClick={handleSendClick}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#f4efe6] px-5 py-4 text-sm font-bold text-[#140d0d] transition hover:bg-[#c9a45c] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition ${
+              isLoading
+                ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
+                : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"
+            }`}
           >
-            <span className="hidden sm:inline">გაგზავნა</span>
-            {isLoading ? (
-              <Loader2 className="animate-spin" size={17} />
-            ) : (
-              <Send size={17} />
-            )}
+            <span className="hidden sm:inline">
+              {isLoading ? "გაჩერება" : "გაგზავნა"}
+            </span>
+            {isLoading ? <Square size={16} /> : <Send size={17} />}
           </button>
         </div>
-
-        
       </div>
     </section>
   );
