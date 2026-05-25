@@ -1,5 +1,5 @@
 export type Figure = {
-  
+  greeting?: string;
   iconImage?: string;
   image?: string;
   slug: string;
