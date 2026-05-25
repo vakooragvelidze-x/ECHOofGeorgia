@@ -2,7 +2,6 @@ import { buildAnswerVariationInstruction } from "@/data/answerVariation";
 import { buildFigureSystemPrompt } from "@/data/figurePrompts";
 import { getFigureBySlug } from "@/data/figures";
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -24,6 +23,30 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown server error.";
+}
+
+function extractDeltaFromSseJson(jsonText: string) {
+  try {
+    const event = JSON.parse(jsonText) as {
+      type?: string;
+      delta?: string;
+      error?: {
+        message?: string;
+      };
+    };
+
+    if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+      return event.delta;
+    }
+
+    if (event.type === "error") {
+      return `\n\nშეცდომა: ${event.error?.message ?? "Unknown streaming error."}`;
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
 }
 
 export async function POST(request: Request) {
@@ -77,28 +100,11 @@ export async function POST(request: Request) {
       )
       .slice(-8);
 
-    const client = new OpenAI({
-      apiKey,
-    });
-
     const systemPrompt = buildFigureSystemPrompt(figure);
-    const answerVariation = buildAnswerVariationInstruction(
-      figure,
-      safeMessages
-    );
+    const answerVariation = buildAnswerVariationInstruction(figure, safeMessages);
     const conversation = formatConversation(safeMessages);
 
-    const encoder = new TextEncoder();
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          const openaiStream = await client.responses.create(
-            {
-              model: process.env.OPENAI_MODEL || "gpt-5.4",
-              instructions: systemPrompt,
-              stream: true,
-              input: `
+    const input = `
 Continue this conversation in first person as ${figure.nameKa}.
 
 ${answerVariation}
@@ -119,43 +125,101 @@ Important:
 - If the user asks the same or similar question again, do not repeat the same answer.
 - Use a fresh angle, fresh sentence rhythm, and fresh conclusion while staying faithful to ${figure.nameKa}.
 - Keep normal answers around 90–180 words unless the user asks for depth.
-`,
-            },
-            {
-              signal: request.signal,
-            }
-          );
+`;
 
-          for await (const event of openaiStream as AsyncIterable<{
-            type?: string;
-            delta?: string;
-          }>) {
+    const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      signal: request.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-5.4",
+        instructions: systemPrompt,
+        input,
+        stream: true,
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorText = await openaiResponse.text();
+
+      return NextResponse.json(
+        {
+          error: `OpenAI API error: ${errorText}`,
+        },
+        { status: openaiResponse.status }
+      );
+    }
+
+    if (!openaiResponse.body) {
+      return NextResponse.json(
+        {
+          error: "OpenAI response stream was empty.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const reader = openaiResponse.body.getReader();
+
+    let buffer = "";
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          while (true) {
             if (request.signal.aborted) {
               break;
             }
 
-            if (
-              event.type === "response.output_text.delta" &&
-              typeof event.delta === "string"
-            ) {
-              controller.enqueue(encoder.encode(event.delta));
+            const { done, value } = await reader.read();
+
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop() ?? "";
+
+            for (const part of parts) {
+              const lines = part.split("\n");
+
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+
+                const data = line.slice(6).trim();
+
+                if (!data || data === "[DONE]") continue;
+
+                const delta = extractDeltaFromSseJson(data);
+
+                if (delta) {
+                  controller.enqueue(encoder.encode(delta));
+                }
+              }
             }
           }
 
           controller.close();
         } catch (error) {
-          if (request.signal.aborted) {
-            controller.close();
-            return;
+          if (!request.signal.aborted) {
+            const message = getErrorMessage(error);
+            controller.enqueue(
+              encoder.encode(
+                `პასუხის მიღება ვერ მოხერხდა. შეცდომა: ${message}`
+              )
+            );
           }
 
-          const message = getErrorMessage(error);
-          controller.enqueue(
-            encoder.encode(
-              `პასუხის მიღება ვერ მოხერხდა. შეცდომა: ${message}`
-            )
-          );
           controller.close();
+        } finally {
+          reader.releaseLock();
         }
       },
     });
@@ -164,7 +228,7 @@ Important:
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
   } catch (error) {
