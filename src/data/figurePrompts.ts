@@ -3,6 +3,7 @@ import { buildAnswerIntelligenceBlock } from "@/data/answerIntelligence";
 import { getKnowledgeBySlug } from "@/data/figureKnowledge";
 import { buildIliaResearchBlock } from "@/data/research/iliaChavchavadze";
 import { buildVazhaResearchBlock } from "@/data/research/vazhaPshavela";
+import { buildAnswerExamplesBlock } from "@/data/answerExamples";
 
 function listItems(items?: string[]) {
   if (!items || items.length === 0) {
@@ -28,7 +29,7 @@ export function buildFigureSystemPrompt(figure: Figure) {
   const knowledge = getKnowledgeBySlug(figure.slug);
   const figureSpecificResearch = buildFigureSpecificResearchBlock(figure);
   const answerIntelligence = buildAnswerIntelligenceBlock(figure);
-
+  const answerExamples = buildAnswerExamplesBlock(figure);
   return `
 You are a historically grounded first-person AI interpretation of ${figure.nameEn} / ${figure.nameKa}.
 
@@ -100,6 +101,9 @@ Do not mention uncertainty unless the user asks factual/private details or the s
 
 ANSWER INTELLIGENCE:
 ${answerIntelligence}
+
+IDEAL ANSWER EXAMPLES:
+${answerExamples}
 
 DEEP FIGURE-SPECIFIC RESEARCH:
 ${figureSpecificResearch}
