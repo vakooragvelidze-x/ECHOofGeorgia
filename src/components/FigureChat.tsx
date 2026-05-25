@@ -28,11 +28,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
-
+  const [slowThinkingText, setSlowThinkingText] = useState<string | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const typingIntervalRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef<number | null>(null);
+  const slowThinkingTimerRef = useRef<number | null>(null);
 
   const [scrollThumb, setScrollThumb] = useState<ScrollThumb>({
     top: 0,
@@ -103,8 +104,18 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       stopGeneration();
     };
   }, [updateScrollThumb]);
+  
+  function clearSlowThinkingTimer() {
+  if (slowThinkingTimerRef.current) {
+    window.clearTimeout(slowThinkingTimerRef.current);
+    slowThinkingTimerRef.current = null;
+  }
+
+  setSlowThinkingText(null);
+}
 
   function stopGeneration() {
+    clearSlowThinkingTimer();
     activeRequestIdRef.current = null;
 
     if (abortControllerRef.current) {
@@ -122,11 +133,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }
 
   function animateAssistantResponse(fullText: string, requestId: number) {
+    clearSlowThinkingTimer();
     const assistantId = Date.now() + 1;
     let index = 0;
 
-    const typingStep = 1;
-    const typingSpeed = 52;
+    const typingStep = fullText.length > 420 ? 3 : fullText.length > 220 ? 2 : 1;
+    const typingSpeed = 30;
 
     setMessages((current) => [
       ...current,
@@ -206,7 +218,17 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setInput("");
     setIsLoading(true);
     setTypingMessageId(null);
+clearSlowThinkingTimer();
 
+slowThinkingTimerRef.current = window.setTimeout(() => {
+  if (activeRequestIdRef.current === requestId) {
+    setSlowThinkingText(
+      figure.slug === "vazha-pshavela"
+        ? "ეს კითხვა ღრმაა... ცოტა დრო დამჭირდება, რომ კარგად დავფიქრდე."
+        : "ეს საინტერესო კითხვაა... ცოტა დრო დამჭირდება, რომ სწორად გიპასუხო."
+    );
+  }
+}, 8000);
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -399,10 +421,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                 <div className="flex justify-start gap-3">
                   <AssistantAvatar />
 
-                  <div className="inline-flex items-center gap-3 rounded-3xl rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 p-5 text-sm text-[#d9d0c5]">
-                    <Loader2 className="animate-spin text-[#c9a45c]" size={17} />
-                    ფიქრობს...
-                  </div>
+                  <div className="inline-flex items-center gap-3 rounded-3xl rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 p-5 text-sm leading-7 text-[#d9d0c5]">
+  <Loader2 className="shrink-0 animate-spin text-[#c9a45c]" size={17} />
+  {slowThinkingText ?? "ფიქრობს..."}
+</div>
                 </div>
               )}
             </div>
