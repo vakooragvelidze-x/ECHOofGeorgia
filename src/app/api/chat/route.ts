@@ -75,7 +75,7 @@ export async function POST(request: Request) {
           typeof message.text === "string" &&
           message.text.trim().length > 0
       )
-      .slice(-16);
+      .slice(-8);
 
     const client = new OpenAI({
       apiKey,
@@ -88,10 +88,17 @@ export async function POST(request: Request) {
     );
     const conversation = formatConversation(safeMessages);
 
-    const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.4",
-      instructions: systemPrompt,
-      input: `
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const openaiStream = await client.responses.create(
+            {
+              model: process.env.OPENAI_MODEL || "gpt-5.4",
+              instructions: systemPrompt,
+              stream: true,
+              input: `
 Continue this conversation in first person as ${figure.nameKa}.
 
 ${answerVariation}
@@ -111,14 +118,54 @@ Important:
 - Prefer one strong clear idea over many weak generic points.
 - If the user asks the same or similar question again, do not repeat the same answer.
 - Use a fresh angle, fresh sentence rhythm, and fresh conclusion while staying faithful to ${figure.nameKa}.
-- Do not copy the example answers word-for-word unless the exact wording is necessary.
+- Keep normal answers around 90–180 words unless the user asks for depth.
 `,
+            },
+            {
+              signal: request.signal,
+            }
+          );
+
+          for await (const event of openaiStream as AsyncIterable<{
+            type?: string;
+            delta?: string;
+          }>) {
+            if (request.signal.aborted) {
+              break;
+            }
+
+            if (
+              event.type === "response.output_text.delta" &&
+              typeof event.delta === "string"
+            ) {
+              controller.enqueue(encoder.encode(event.delta));
+            }
+          }
+
+          controller.close();
+        } catch (error) {
+          if (request.signal.aborted) {
+            controller.close();
+            return;
+          }
+
+          const message = getErrorMessage(error);
+          controller.enqueue(
+            encoder.encode(
+              `პასუხის მიღება ვერ მოხერხდა. შეცდომა: ${message}`
+            )
+          );
+          controller.close();
+        }
+      },
     });
 
-    return NextResponse.json({
-      text:
-        response.output_text ||
-        "ვერ მოხერხდა პასუხის მიღება. სცადე თავიდან.",
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
     });
   } catch (error) {
     console.error("Chat API error:", error);

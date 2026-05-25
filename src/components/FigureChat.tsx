@@ -29,8 +29,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [isLoading, setIsLoading] = useState(false);
   const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
   const [slowThinkingText, setSlowThinkingText] = useState<string | null>(null);
+
   const chatRef = useRef<HTMLDivElement | null>(null);
-  const typingIntervalRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef<number | null>(null);
   const slowThinkingTimerRef = useRef<number | null>(null);
@@ -103,95 +103,48 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       window.removeEventListener("resize", updateScrollThumb);
       stopGeneration();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateScrollThumb]);
-  
+
   function clearSlowThinkingTimer() {
-  if (slowThinkingTimerRef.current) {
-    window.clearTimeout(slowThinkingTimerRef.current);
-    slowThinkingTimerRef.current = null;
+    if (slowThinkingTimerRef.current) {
+      window.clearTimeout(slowThinkingTimerRef.current);
+      slowThinkingTimerRef.current = null;
+    }
+
+    setSlowThinkingText(null);
   }
 
-  setSlowThinkingText(null);
-}
-
   function stopGeneration() {
-    clearSlowThinkingTimer();
     activeRequestIdRef.current = null;
+    clearSlowThinkingTimer();
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
 
-    if (typingIntervalRef.current) {
-      window.clearInterval(typingIntervalRef.current);
-      typingIntervalRef.current = null;
-    }
-
     setTypingMessageId(null);
     setIsLoading(false);
   }
 
-  function animateAssistantResponse(fullText: string, requestId: number) {
-    clearSlowThinkingTimer();
-    const assistantId = Date.now() + 1;
-    let index = 0;
+  function updateStreamingAssistantMessage(
+    assistantId: number,
+    requestId: number,
+    nextText: string
+  ) {
+    if (activeRequestIdRef.current !== requestId) return;
 
-    const typingStep = fullText.length > 420 ? 3 : fullText.length > 220 ? 2 : 1;
-    const typingSpeed = 30;
-
-    setMessages((current) => [
-      ...current,
-      {
-        id: assistantId,
-        role: "assistant",
-        text: "",
-      },
-    ]);
-
-    setTypingMessageId(assistantId);
-
-    if (typingIntervalRef.current) {
-      window.clearInterval(typingIntervalRef.current);
-    }
-
-    typingIntervalRef.current = window.setInterval(() => {
-      if (activeRequestIdRef.current !== requestId) {
-        if (typingIntervalRef.current) {
-          window.clearInterval(typingIntervalRef.current);
-        }
-
-        typingIntervalRef.current = null;
-        setTypingMessageId(null);
-        setIsLoading(false);
-        return;
-      }
-
-      index += typingStep;
-
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                text: fullText.slice(0, index),
-              }
-            : message
-        )
-      );
-
-      if (index >= fullText.length) {
-        if (typingIntervalRef.current) {
-          window.clearInterval(typingIntervalRef.current);
-        }
-
-        typingIntervalRef.current = null;
-        abortControllerRef.current = null;
-        activeRequestIdRef.current = null;
-        setTypingMessageId(null);
-        setIsLoading(false);
-      }
-    }, typingSpeed);
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === assistantId
+          ? {
+              ...message,
+              text: nextText,
+            }
+          : message
+      )
+    );
   }
 
   async function sendMessage(messageText?: string) {
@@ -201,6 +154,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     if (isLoading) return;
 
     const requestId = Date.now();
+    const assistantId = requestId + 1;
     const controller = new AbortController();
 
     activeRequestIdRef.current = requestId;
@@ -212,23 +166,30 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       text: finalMessage,
     };
 
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: "assistant",
+      text: "",
+    };
+
     const updatedMessages = [...messages, userMessage];
 
-    setMessages(updatedMessages);
+    setMessages([...updatedMessages, assistantMessage]);
     setInput("");
     setIsLoading(true);
-    setTypingMessageId(null);
-clearSlowThinkingTimer();
+    setTypingMessageId(assistantId);
+    clearSlowThinkingTimer();
 
-slowThinkingTimerRef.current = window.setTimeout(() => {
-  if (activeRequestIdRef.current === requestId) {
-    setSlowThinkingText(
-      figure.slug === "vazha-pshavela"
-        ? "ეს კითხვა ღრმაა... ცოტა დრო დამჭირდება, რომ კარგად დავფიქრდე."
-        : "ეს საინტერესო კითხვაა... ცოტა დრო დამჭირდება, რომ სწორად გიპასუხო."
-    );
-  }
-}, 8000);
+    slowThinkingTimerRef.current = window.setTimeout(() => {
+      if (activeRequestIdRef.current === requestId) {
+        setSlowThinkingText(
+          figure.slug === "vazha-pshavela"
+            ? "ეს კითხვა ღრმაა... ცოტა დრო დამჭირდება, რომ კარგად დავფიქრდე."
+            : "ეს საინტერესო კითხვაა... ცოტა დრო დამჭირდება, რომ სწორად გიპასუხო."
+        );
+      }
+    }, 8000);
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -246,35 +207,51 @@ slowThinkingTimerRef.current = window.setTimeout(() => {
         }),
       });
 
-      if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
-        return;
-      }
-
-      const rawText = await response.text();
-
-      if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
-        return;
-      }
-
-      let data: { text?: string; error?: string };
-
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        throw new Error(
-          `Server returned non-JSON response. First part: ${rawText.slice(0, 140)}`
-        );
-      }
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate response.");
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to generate response.");
       }
 
-      if (activeRequestIdRef.current === requestId && !controller.signal.aborted) {
-        animateAssistantResponse(
-          data.text || "პასუხი ვერ მივიღე. სცადე თავიდან.",
-          requestId
-        );
+      if (!response.body) {
+        throw new Error("No response stream received.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let streamedText = "";
+      let receivedFirstChunk = false;
+
+      while (true) {
+        if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
+          break;
+        }
+
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+
+        if (!receivedFirstChunk && chunk.trim().length > 0) {
+          receivedFirstChunk = true;
+          clearSlowThinkingTimer();
+        }
+
+        streamedText += chunk;
+        updateStreamingAssistantMessage(assistantId, requestId, streamedText);
+      }
+
+      reader.releaseLock();
+
+      if (activeRequestIdRef.current === requestId) {
+        activeRequestIdRef.current = null;
+        abortControllerRef.current = null;
+        clearSlowThinkingTimer();
+        setTypingMessageId(null);
+        setIsLoading(false);
       }
     } catch (error) {
       const isAbortError =
@@ -285,18 +262,26 @@ slowThinkingTimerRef.current = window.setTimeout(() => {
         activeRequestIdRef.current !== requestId ||
         controller.signal.aborted
       ) {
-        setIsLoading(false);
+        clearSlowThinkingTimer();
         setTypingMessageId(null);
+        setIsLoading(false);
         abortControllerRef.current = null;
         return;
       }
 
       console.error("Chat request error:", error);
 
-      animateAssistantResponse(
-        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე API key, მოდელის სახელი და სცადე თავიდან.",
-        requestId
+      updateStreamingAssistantMessage(
+        assistantId,
+        requestId,
+        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე API key, მოდელის სახელი და სცადე თავიდან."
       );
+
+      clearSlowThinkingTimer();
+      activeRequestIdRef.current = null;
+      abortControllerRef.current = null;
+      setTypingMessageId(null);
+      setIsLoading(false);
     }
   }
 
@@ -402,7 +387,9 @@ slowThinkingTimerRef.current = window.setTimeout(() => {
                           : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                       }`}
                     >
-                      {message.text}
+                      {message.text ||
+                        (isTyping ? slowThinkingText ?? "ფიქრობს..." : "")}
+
                       {isTyping && (
                         <span className="typing-cursor ml-1 inline-block h-4 w-[2px] translate-y-[2px] bg-[#c9a45c]" />
                       )}
@@ -422,9 +409,9 @@ slowThinkingTimerRef.current = window.setTimeout(() => {
                   <AssistantAvatar />
 
                   <div className="inline-flex items-center gap-3 rounded-3xl rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 p-5 text-sm leading-7 text-[#d9d0c5]">
-  <Loader2 className="shrink-0 animate-spin text-[#c9a45c]" size={17} />
-  {slowThinkingText ?? "ფიქრობს..."}
-</div>
+                    <Loader2 className="shrink-0 animate-spin text-[#c9a45c]" size={17} />
+                    {slowThinkingText ?? "ფიქრობს..."}
+                  </div>
                 </div>
               )}
             </div>
