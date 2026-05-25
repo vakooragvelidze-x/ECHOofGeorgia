@@ -1,3 +1,4 @@
+import { buildAnswerVariationInstruction } from "@/data/answerVariation";
 import { buildFigureSystemPrompt } from "@/data/figurePrompts";
 import { getFigureBySlug } from "@/data/figures";
 import { NextResponse } from "next/server";
@@ -45,17 +46,26 @@ export async function POST(request: Request) {
     const messages = body.messages as ChatMessage[] | undefined;
 
     if (!slug) {
-      return NextResponse.json({ error: "Missing figure slug." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing figure slug." },
+        { status: 400 }
+      );
     }
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json({ error: "Missing chat messages." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing chat messages." },
+        { status: 400 }
+      );
     }
 
     const figure = getFigureBySlug(slug);
 
     if (!figure) {
-      return NextResponse.json({ error: "Figure not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Figure not found." },
+        { status: 404 }
+      );
     }
 
     const safeMessages = messages
@@ -65,20 +75,26 @@ export async function POST(request: Request) {
           typeof message.text === "string" &&
           message.text.trim().length > 0
       )
-      .slice(-12);
+      .slice(-16);
 
     const client = new OpenAI({
       apiKey,
     });
 
     const systemPrompt = buildFigureSystemPrompt(figure);
+    const answerVariation = buildAnswerVariationInstruction(
+      figure,
+      safeMessages
+    );
     const conversation = formatConversation(safeMessages);
 
     const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.5",
+      model: process.env.OPENAI_MODEL || "gpt-5.4",
       instructions: systemPrompt,
       input: `
 Continue this conversation in first person as ${figure.nameKa}.
+
+${answerVariation}
 
 Conversation:
 ${conversation}
@@ -93,6 +109,9 @@ Important:
 - Be articulate, specific, and thoughtful.
 - Use the character's worldview to reason, not just facts from biography.
 - Prefer one strong clear idea over many weak generic points.
+- If the user asks the same or similar question again, do not repeat the same answer.
+- Use a fresh angle, fresh sentence rhythm, and fresh conclusion while staying faithful to ${figure.nameKa}.
+- Do not copy the example answers word-for-word unless the exact wording is necessary.
 `,
     });
 
