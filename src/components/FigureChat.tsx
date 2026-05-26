@@ -307,8 +307,28 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       }
     }
   }
+  function ThinkingIndicator({ text = "ვფიქრობ" }: { text?: string }) {
+  return (
+    <div className="inline-flex items-center gap-3">
+      <span>{text}</span>
+
+      <span className="inline-flex items-center gap-1">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]" />
+        <span
+          className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]"
+          style={{ animationDelay: "120ms" }}
+        />
+        <span
+          className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]"
+          style={{ animationDelay: "240ms" }}
+        />
+      </span>
+    </div>
+  );
+} 
 
   function AssistantAvatar() {
+    
     const avatarImage = figure.iconImage ?? figure.image;
 
     if (avatarImage) {
@@ -387,8 +407,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                           : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                       }`}
                     >
-                      {message.text ||
-                        (isTyping ? slowThinkingText ?? "ფიქრობს..." : "")}
+                      {message.text ? (
+  message.text
+) : isTyping ? (
+  <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
+) : (
+  ""
+)}
 
                       {isTyping && (
                         <span className="typing-cursor ml-1 inline-block h-4 w-[2px] translate-y-[2px] bg-[#c9a45c]" />
@@ -409,8 +434,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   <AssistantAvatar />
 
                   <div className="inline-flex items-center gap-3 rounded-3xl rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 p-5 text-sm leading-7 text-[#d9d0c5]">
-                    <Loader2 className="shrink-0 animate-spin text-[#c9a45c]" size={17} />
-                    {slowThinkingText ?? "ფიქრობს..."}
+                    <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
                   </div>
                 </div>
               )}
