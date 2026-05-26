@@ -115,6 +115,11 @@ ${conversation}
 Answer only the latest user message.
 
 Important:
+- Match answer length to the question.
+- If the user is only greeting or asking a casual/simple question, answer briefly in 1–3 sentences.
+- Do not turn casual messages into lectures.
+- Keep normal answers around 80–140 words.
+- Go longer only if the user asks for depth, analysis, essay, or detailed explanation.
 - Speak in first person by default.
 - Give a real answer, not a disclaimer.
 - Do not answer like an encyclopedia unless the user asks for facts.
