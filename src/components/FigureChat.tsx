@@ -711,14 +711,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
     if (avatarImage) {
       return (
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
-          <Image
-            src={avatarImage}
-            alt={figure.nameKa}
-            fill
-            sizes="36px"
-            className="object-cover grayscale sepia-[0.22] contrast-110"
-          />
+       <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010] [transform:translateZ(0)]"></div>
+          <img
+  src={avatarImage}
+  alt={figure.nameKa}
+  className="h-full w-full object-cover"
+/>
         </div>
       );
     }
