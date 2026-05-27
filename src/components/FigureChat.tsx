@@ -623,51 +623,57 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     );
   }
 
+  const hasUserMessage = messages.some((message) => message.role === "user");
+  const shouldShowSuggestedQuestions =
+    !hasUserMessage && !isOpeningConversation && !limitNotice;
+
   return (
-    <section className="relative z-10 mx-auto grid h-[calc(100vh-120px)] max-w-7xl gap-5 overflow-hidden pb-0 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-4 backdrop-blur-xl lg:flex">
+    <section className="relative z-10 mx-auto grid h-[calc(100vh-120px)] max-w-7xl gap-5 overflow-hidden pb-0 lg:grid-cols-[250px_minmax(0,1fr)]">
+      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-3 backdrop-blur-xl lg:flex">
         <button
           type="button"
           onClick={startNewChat}
-          className="mb-5 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
+          className={`mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition ${
+            activeConversationId === null
+              ? "border-[#c9a45c]/30 bg-[#c9a45c]/15 text-[#f4efe6]"
+              : "border-[#f4efe6]/10 bg-[#f4efe6]/5 text-[#f4efe6] hover:bg-[#f4efe6]/10"
+          }`}
         >
-          <Plus size={16} />
+          <Plus size={15} />
           ახალი საუბარი
         </button>
 
-        <div className="mb-5 shrink-0 rounded-2xl border border-[#c9a45c]/18 bg-[#c9a45c]/10 p-4">
-          <div className="mb-3 flex items-center gap-3">
+        <div className="mb-4 shrink-0 rounded-2xl border border-[#c9a45c]/16 bg-[#c9a45c]/8 p-3">
+          <div className="flex items-center gap-3">
             <AssistantAvatar />
 
-            <div>
-              <p className="text-sm font-black text-[#f4efe6]">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-[#f4efe6]">
                 {figure.nameKa}
               </p>
-              <p className="mt-1 text-xs text-[#d8c08a]">{figure.era}</p>
+              <p className="mt-0.5 truncate text-[11px] text-[#d8c08a]">
+                {figure.era}
+              </p>
             </div>
           </div>
-
-          <p className="text-xs leading-5 text-[#b8aea3]">{figure.role}</p>
         </div>
 
         {authStatus === "guest" && (
-          <div className="mb-5 shrink-0 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 p-4">
-            <p className="text-sm font-black text-[#f4efe6]">
-              საცდელი რეჟიმი
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[#b8aea3]">
-              გამოყენებულია {guestUsageCount}/{GUEST_FREE_LIMIT} უფასო კითხვა.
+          <div className="mb-4 shrink-0 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 p-3">
+            <p className="text-xs font-black text-[#f4efe6]">საცდელი რეჟიმი</p>
+            <p className="mt-1.5 text-[11px] leading-4 text-[#b8aea3]">
+              {guestUsageCount}/{GUEST_FREE_LIMIT} უფასო კითხვა.
             </p>
             <div className="mt-3 flex gap-2">
               <Link
                 href="/register"
-                className="rounded-full bg-[#c9a45c] px-3 py-2 text-xs font-black text-[#140d0d]"
+                className="rounded-full bg-[#c9a45c] px-3 py-1.5 text-[11px] font-black text-[#140d0d]"
               >
                 რეგისტრაცია
               </Link>
               <Link
                 href="/login"
-                className="rounded-full border border-[#f4efe6]/10 px-3 py-2 text-xs font-bold text-[#f4efe6]"
+                className="rounded-full border border-[#f4efe6]/10 px-3 py-1.5 text-[11px] font-bold text-[#f4efe6]"
               >
                 შესვლა
               </Link>
@@ -676,47 +682,35 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         )}
 
         <div className="min-h-0 flex-1">
-          <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#756b63]">
-            <Clock3 size={14} />
-            საუბრები
+          <div className="mb-2 flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#756b63]">
+            <Clock3 size={13} />
+            ჩატები
           </div>
 
-          <div className="chat-scroll-area h-[calc(100%-28px)] space-y-2 overflow-y-auto pr-1">
-            <button
-              type="button"
-              onClick={startNewChat}
-              className={`w-full rounded-xl px-3 py-3 text-left text-sm leading-5 transition ${
-                activeConversationId === null
-                  ? "bg-[#f4efe6]/8 text-[#f4efe6]"
-                  : "bg-[#f4efe6]/4 text-[#b8aea3] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
-              }`}
-            >
-              მიმდინარე საუბარი
-            </button>
-
+          <div className="chat-scroll-area h-[calc(100%-24px)] space-y-1.5 overflow-y-auto pr-1">
             {authStatus === "loading" && (
-              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
+              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
                 იტვირთება...
               </div>
             )}
 
             {authStatus === "guest" && (
-              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
-                შესვლის შემდეგ საუბრები აქ შეინახება.
+              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+                შესვლის შემდეგ ჩატები აქ გამოჩნდება.
               </div>
             )}
 
             {authStatus === "user" && isLoadingConversations && (
-              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
-                საუბრები იტვირთება...
+              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+                ჩატები იტვირთება...
               </div>
             )}
 
             {authStatus === "user" &&
               !isLoadingConversations &&
               savedConversations.length === 0 && (
-                <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
-                  ჯერ შენახული საუბარი არ გაქვს.
+                <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+                  ჯერ შენახული ჩატი არ გაქვს.
                 </div>
               )}
 
@@ -724,17 +718,19 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               <button
                 key={conversation.id}
                 type="button"
+                title={conversation.title}
                 onClick={() => void openConversation(conversation.id)}
-                className={`w-full rounded-xl px-3 py-3 text-left transition ${
+                className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition ${
                   activeConversationId === conversation.id
-                    ? "bg-[#c9a45c]/15 text-[#f4efe6]"
-                    : "bg-[#f4efe6]/4 text-[#d9d0c5] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
+                    ? "bg-[#c9a45c]/16 text-[#f4efe6] ring-1 ring-[#c9a45c]/20"
+                    : "bg-[#f4efe6]/4 text-[#b8aea3] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
                 }`}
               >
-                <span className="line-clamp-2 block text-sm leading-5">
+                <span className="min-w-0 flex-1 truncate text-xs font-bold leading-5">
                   {conversation.title}
                 </span>
-                <span className="mt-1 block text-[11px] text-[#756b63]">
+
+                <span className="shrink-0 text-[10px] text-[#756b63]">
                   {formatSavedConversationDate(conversation.updated_at)}
                 </span>
               </button>
@@ -856,19 +852,21 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               </div>
             )}
 
-            <div className="mb-3 flex flex-wrap gap-2">
-              {figure.questions.map((question) => (
-                <button
-                  key={question}
-                  type="button"
-                  onClick={() => void sendMessage(question)}
-                  disabled={isLoading || isOpeningConversation}
-                  className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3.5 py-2 text-left text-xs font-semibold leading-5 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {question}
-                </button>
-              ))}
-            </div>
+            {shouldShowSuggestedQuestions && (
+              <div className="mb-2 flex max-h-16 flex-wrap gap-1.5 overflow-hidden">
+                {figure.questions.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => void sendMessage(question)}
+                    disabled={isLoading || isOpeningConversation}
+                    className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/4 px-3 py-1.5 text-left text-[11px] font-semibold leading-4 text-[#b8aea3] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <input
