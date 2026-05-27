@@ -142,53 +142,79 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
 
   useEffect(() => {
-    const supabase = createClient();
+  const supabase = createClient();
 
-    setGuestUsageCountState(getGuestUsageCount());
+  setGuestUsageCountState(getGuestUsageCount());
 
-    supabase.auth.getUser().then(({ data }) => {
-      const nextStatus = data.user ? "user" : "guest";
-      setAuthStatus(nextStatus);
-
-      if (nextStatus === "user") {
-        void loadConversations();
+  supabase.auth
+    .getUser()
+    .then(async ({ data, error }) => {
+      if (error || !data.user) {
+        await supabase.auth.signOut();
+        setAuthStatus("guest");
+        setSavedConversations([]);
+        setActiveConversationId(null);
+        return;
       }
+
+      setAuthStatus("user");
+      void loadConversations();
+    })
+    .catch(async () => {
+      await supabase.auth.signOut();
+      setAuthStatus("guest");
+      setSavedConversations([]);
+      setActiveConversationId(null);
     });
 
-    return () => {
-      stopGeneration();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  return () => {
+    stopGeneration();
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   async function loadConversations() {
-    setIsLoadingConversations(true);
+  setIsLoadingConversations(true);
 
-    try {
-      const response = await fetch("/api/conversations", {
-        method: "GET",
-        cache: "no-store",
-      });
+  try {
+    const response = await fetch("/api/conversations", {
+      method: "GET",
+      cache: "no-store",
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to load conversations.");
-      }
+    if (response.status === 401) {
+      const supabase = createClient();
 
-      const data = (await response.json()) as {
-        conversations?: SavedConversation[];
-      };
+      await supabase.auth.signOut();
 
-      const currentFigureConversations = (data.conversations ?? []).filter(
-        (conversation) => conversation.figure_slug === figure.slug
-      );
-
-      setSavedConversations(currentFigureConversations);
-    } catch (error) {
-      console.error("Load conversations error:", error);
-    } finally {
-      setIsLoadingConversations(false);
+      setAuthStatus("guest");
+      setSavedConversations([]);
+      setActiveConversationId(null);
+      return;
     }
+
+    if (!response.ok) {
+      console.warn("Failed to load conversations:", response.status);
+      setSavedConversations([]);
+      return;
+    }
+
+    const data = (await response.json()) as {
+      conversations?: SavedConversation[];
+    };
+
+    const currentFigureConversations = (data.conversations ?? []).filter(
+      (conversation) => conversation.figure_slug === figure.slug
+    );
+
+    setSavedConversations(currentFigureConversations);
+  } catch (error) {
+    console.warn("Load conversations warning:", error);
+    setSavedConversations([]);
+  } finally {
+    setIsLoadingConversations(false);
   }
+}
 
   async function createConversation(firstMessage: string) {
     const response = await fetch("/api/conversations", {

@@ -1,4 +1,4 @@
-import { ArrowRight, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { figures } from "@/data/figures";
@@ -69,9 +69,6 @@ export default async function HomePage() {
             <a href="#figures" className="transition hover:text-[#f4efe6]">
               პიროვნებები
             </a>
-            <a href="#how-it-works" className="transition hover:text-[#f4efe6]">
-              როგორ მუშაობს
-            </a>
           </div>
 
           {user ? (
@@ -91,20 +88,8 @@ export default async function HomePage() {
           )}
         </nav>
 
-        <div className="relative z-10 mx-auto grid min-h-[calc(100vh-92px)] max-w-7xl items-center gap-12 py-16 lg:grid-cols-[1fr_0.9fr]">
+        <div className="relative z-10 mx-auto grid min-h-[calc(100vh-92px)] max-w-7xl items-center gap-14 py-16 lg:grid-cols-[1fr_0.9fr]">
           <div className="max-w-3xl">
-            <div className="mb-9">
-              <div className="relative h-24 w-[17rem] sm:h-28 sm:w-[20rem]">
-                <Image
-                  src="/brand/echo-georgia-logo-nav.png"
-                  alt="ECHO Georgia"
-                  fill
-                  priority
-                  className="object-contain object-left"
-                />
-              </div>
-            </div>
-
             <h1 className="text-[clamp(3.2rem,7.5vw,7.4rem)] font-black leading-[0.88] tracking-[-0.075em]">
               Echoes of Georgia
             </h1>
@@ -140,6 +125,18 @@ export default async function HomePage() {
           </div>
 
           <div className="relative hidden lg:block">
+            <div className="mb-10 flex justify-end">
+              <div className="relative h-24 w-[18rem] opacity-90">
+                <Image
+                  src="/brand/echo-georgia-logo-nav.png"
+                  alt="ECHO Georgia"
+                  fill
+                  priority
+                  className="object-contain object-right"
+                />
+              </div>
+            </div>
+
             <div className="absolute -inset-8 rounded-[3rem] bg-[#5c1e26]/25 blur-3xl" />
 
             <Link
@@ -290,58 +287,6 @@ export default async function HomePage() {
                 </div>
               </Link>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="how-it-works"
-        className="relative px-5 pb-24 sm:px-8 lg:px-12"
-      >
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-10 max-w-3xl">
-            <p className="mb-3 text-sm font-bold uppercase tracking-[0.28em] text-[#c9a45c]">
-              How it works
-            </p>
-
-            <h2 className="text-4xl font-black tracking-[-0.04em] sm:text-5xl">
-              მარტივი იდეა
-            </h2>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-3">
-            <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7">
-              <div className="mb-5 grid h-11 w-11 place-items-center rounded-full bg-[#c9a45c] text-sm font-black text-[#140d0d]">
-                1
-              </div>
-              <h3 className="text-2xl font-black">აირჩიე პიროვნება</h3>
-              <p className="mt-4 text-sm leading-7 text-[#b8aea3]">
-                ილია, ვაჟა და სხვა ისტორიული ფიგურები წარმოდგენილია ცალკე
-                სასაუბრო სივრცეებად.
-              </p>
-            </div>
-
-            <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7">
-              <div className="mb-5 grid h-11 w-11 place-items-center rounded-full bg-[#c9a45c] text-sm font-black text-[#140d0d]">
-                2
-              </div>
-              <h3 className="text-2xl font-black">დასვი კითხვა</h3>
-              <p className="mt-4 text-sm leading-7 text-[#b8aea3]">
-                ჰკითხე ცხოვრებაზე, იდეებზე, ნაწერებზე, ეპოქაზე ან დღევანდელ
-                საკითხებზე.
-              </p>
-            </div>
-
-            <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7">
-              <div className="mb-5 grid h-11 w-11 place-items-center rounded-full bg-[#c9a45c] text-sm font-black text-[#140d0d]">
-                3
-              </div>
-              <h3 className="text-2xl font-black">მიიღე პასუხი</h3>
-              <p className="mt-4 text-sm leading-7 text-[#b8aea3]">
-                პასუხი იქმნება ბიოგრაფიებზე, ტექსტებზე და ისტორიულ კონტექსტზე
-                დაყრდნობით.
-              </p>
-            </div>
           </div>
         </div>
       </section>
