@@ -102,7 +102,11 @@ export default function LoginPage() {
           >
             {isLoading ? "შესვლა..." : "შესვლა"}
           </button>
-
+<div className="mt-4 text-center text-sm text-[#b8aea3]">
+  <Link href="/forgot-password" className="font-black text-[#c9a45c]">
+    დაგავიწყდა პაროლი?
+  </Link>
+</div>
           <p className="mt-5 text-center text-sm text-[#b8aea3]">
             არ გაქვს ანგარიში?{" "}
             <Link href="/register" className="font-bold text-[#c9a45c]">
