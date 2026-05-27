@@ -1,0 +1,102 @@
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setError("");
+    setIsLoading(true);
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (loginError) {
+      setError(loginError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(false);
+    router.push("/account");
+    router.refresh();
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0e0b0b] px-5 py-10 text-[#f4efe6]">
+      <div className="mx-auto flex min-h-[80vh] max-w-md items-center">
+        <form
+          onSubmit={handleLogin}
+          className="w-full rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7 shadow-2xl"
+        >
+          <p className="text-sm font-bold uppercase tracking-[0.24em] text-[#c9a45c]">
+            ECHO Georgia
+          </p>
+
+          <h1 className="mt-4 text-4xl font-black tracking-[-0.05em]">
+            შესვლა
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
+            შედი ანგარიშში და გააგრძელე შენახული საუბრები.
+          </p>
+
+          <div className="mt-7 space-y-4">
+            <input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              placeholder="Email"
+              required
+              className="w-full rounded-2xl border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-4 text-sm outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40"
+            />
+
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              placeholder="Password"
+              required
+              className="w-full rounded-2xl border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-4 text-sm outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40"
+            />
+          </div>
+
+          {error && (
+            <p className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="mt-6 w-full rounded-full bg-[#c9a45c] px-5 py-4 text-sm font-black text-[#140d0d] transition hover:bg-[#e2c071] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? "შესვლა..." : "შესვლა"}
+          </button>
+
+          <p className="mt-5 text-center text-sm text-[#b8aea3]">
+            არ გაქვს ანგარიში?{" "}
+            <Link href="/register" className="font-bold text-[#c9a45c]">
+              რეგისტრაცია
+            </Link>
+          </p>
+        </form>
+      </div>
+    </main>
+  );
+}
