@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-
+import BackHomeButton from "@/components/BackHomeButton";
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -70,6 +70,12 @@ export default function RegisterPage() {
           <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
             შექმენი ანგარიში, რომ საუბრები შეინახო და მოგვიანებით გააგრძელო.
           </p>
+          
+          <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-8">
+  <BackHomeButton />
+</div>
+
+
 
           <div className="mt-7 space-y-4">
             <input

@@ -1,5 +1,5 @@
 "use client";
-
+import BackHomeButton from "@/components/BackHomeButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -57,6 +57,10 @@ export default function LoginPage() {
             ECHO Georgia
           </p>
 
+          <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-8">
+          <BackHomeButton /> 
+          </div>
+          
           <h1 className="mt-4 text-4xl font-black tracking-[-0.05em]">
             შესვლა
           </h1>
