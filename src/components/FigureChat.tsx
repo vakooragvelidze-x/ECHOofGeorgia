@@ -6,7 +6,6 @@ import {
   Bot,
   Clock3,
   LogIn,
-  MessageCircle,
   Plus,
   Send,
   Square,
@@ -237,10 +236,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setLimitNotice(null);
 
     try {
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: "GET",
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/conversations/${conversationId}/messages`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to load messages.");
@@ -371,7 +373,6 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         "დღიური უფასო ლიმიტი ამოიწურა. Premium გეგმით მიიღებ მეტ კითხვას.";
 
       showFreeLimitNotice(limitMessage);
-
       updateStreamingAssistantMessage(assistantId, requestId, limitMessage);
 
       activeRequestIdRef.current = null;
@@ -383,7 +384,9 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       return;
     }
 
-    throw new Error(payload?.error || errorText || "Failed to generate response.");
+    throw new Error(
+      payload?.error || errorText || "Failed to generate response."
+    );
   }
 
   async function sendMessage(messageText?: string) {
@@ -621,18 +624,18 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }
 
   return (
-    <section className="relative z-10 mx-auto grid max-w-7xl gap-5 pb-10 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-4 backdrop-blur-xl lg:block">
+    <section className="relative z-10 mx-auto grid h-[calc(100vh-120px)] max-w-7xl gap-5 overflow-hidden pb-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-4 backdrop-blur-xl lg:flex">
         <button
           type="button"
           onClick={startNewChat}
-          className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
+          className="mb-5 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
         >
           <Plus size={16} />
           ახალი საუბარი
         </button>
 
-        <div className="mb-5 rounded-2xl border border-[#c9a45c]/18 bg-[#c9a45c]/10 p-4">
+        <div className="mb-5 shrink-0 rounded-2xl border border-[#c9a45c]/18 bg-[#c9a45c]/10 p-4">
           <div className="mb-3 flex items-center gap-3">
             <AssistantAvatar />
 
@@ -648,7 +651,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         </div>
 
         {authStatus === "guest" && (
-          <div className="mb-5 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 p-4">
+          <div className="mb-5 shrink-0 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 p-4">
             <p className="text-sm font-black text-[#f4efe6]">
               საცდელი რეჟიმი
             </p>
@@ -672,13 +675,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           </div>
         )}
 
-        <div>
+        <div className="min-h-0 flex-1">
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#756b63]">
             <Clock3 size={14} />
             საუბრები
           </div>
 
-          <div className="space-y-2">
+          <div className="chat-scroll-area h-[calc(100%-28px)] space-y-2 overflow-y-auto pr-1">
             <button
               type="button"
               onClick={startNewChat}
@@ -740,8 +743,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         </div>
       </aside>
 
-      <div className="flex min-h-[calc(100vh-140px)] flex-col rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 backdrop-blur-xl">
-        <header className="border-b border-[#f4efe6]/8 px-5 py-4 sm:px-7">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 backdrop-blur-xl">
+        <header className="shrink-0 border-b border-[#f4efe6]/8 px-5 py-4 sm:px-7">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <AssistantAvatar />
@@ -764,7 +767,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
         <div
           ref={chatRef}
-          className="chat-scroll-area flex-1 overflow-y-auto px-5 py-6 sm:px-7"
+          className="chat-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7"
         >
           <div className="mx-auto max-w-3xl space-y-6">
             {messages.map((message) => {
@@ -811,7 +814,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           </div>
         </div>
 
-        <div className="border-t border-[#f4efe6]/8 px-5 py-4 sm:px-7">
+        <div className="shrink-0 border-t border-[#f4efe6]/8 px-5 py-4 sm:px-7">
           <div className="mx-auto max-w-3xl">
             {limitNotice && (
               <div className="mb-4 rounded-2xl border border-[#c9a45c]/25 bg-[#c9a45c]/10 p-4">
