@@ -4,6 +4,8 @@ import { getKnowledgeBySlug } from "@/data/figureKnowledge";
 import { buildIliaResearchBlock } from "@/data/research/iliaChavchavadze";
 import { buildVazhaResearchBlock } from "@/data/research/vazhaPshavela";
 import { buildAnswerExamplesBlock } from "@/data/answerExamples";
+import { buildShotaResearchBlock } from "@/data/research/shotaRustaveli";
+import { buildNikoResearchBlock } from "@/data/research/nikoPirosmani";
 
 function listItems(items?: string[]) {
   if (!items || items.length === 0) {
@@ -170,6 +172,14 @@ function buildFigureSpecificResearchBlock(figure: Figure) {
 
   if (figure.slug === "tamar-mepe") {
     return buildTamarResearchBlock();
+  }
+
+  if (figure.slug === "shota-rustaveli") {
+    return buildShotaResearchBlock();
+  }
+
+  if (figure.slug === "niko-pirosmani") {
+    return buildNikoResearchBlock();
   }
 
   return "No deep figure-specific research profile has been added yet.";
