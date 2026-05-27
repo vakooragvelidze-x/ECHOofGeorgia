@@ -1,5 +1,5 @@
 "use client";
-
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -15,10 +15,48 @@ export default function RegisterPage() {
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+async function handleGoogleLogin() {
+  setError("");
+  setIsLoading(true);
 
+  try {
+    const supabase = createClient();
+
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback`
+        : "https://echogeorgia.com/auth/callback";
+
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+      },
+    });
+
+    if (googleError) {
+      throw googleError;
+    }
+  } catch (error) {
+    console.error("Google register error:", error);
+    setError("Google-ით რეგისტრაცია ვერ მოხერხდა. სცადე თავიდან.");
+    setIsLoading(false);
+  }
+}
     setError("");
     setIsLoading(true);
-
+<button
+  type="button"
+  onClick={() => void handleGoogleLogin()}
+  disabled={isLoading}
+  className="flex w-full items-center justify-center gap-3 rounded-full border border-[#f4efe6]/10 bg-[#f4efe6] px-6 py-4 text-sm font-black text-[#140d0d] transition hover:bg-[#c9a45c] disabled:cursor-not-allowed disabled:opacity-60"
+>
+  Google-ით გაგრძელება
+</button>
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",

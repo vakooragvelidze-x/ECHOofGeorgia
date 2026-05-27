@@ -3,7 +3,7 @@ import BackHomeButton from "@/components/BackHomeButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-
+import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const router = useRouter();
 
@@ -45,7 +45,38 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   }
+async function handleGoogleLogin() {
+  setError("");
+  setIsLoading(true);
 
+  try {
+    const supabase = createClient();
+
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback`
+        : "https://echogeorgia.com/auth/callback";
+
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+      },
+    });
+
+    if (googleError) {
+      throw googleError;
+    }
+  } catch (error) {
+    console.error("Google login error:", error);
+    setError("Google-ით შესვლა ვერ მოხერხდა. სცადე თავიდან.");
+    setIsLoading(false);
+  }
+}
   return (
     <main className="min-h-screen bg-[#0e0b0b] px-5 py-10 text-[#f4efe6]">
       <div className="mx-auto flex min-h-[80vh] max-w-md items-center">
@@ -68,7 +99,19 @@ export default function LoginPage() {
           <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
             შედი ანგარიშში და გააგრძელე შენახული საუბრები.
           </p>
-
+<button
+  type="button"
+  onClick={() => void handleGoogleLogin()}
+  disabled={isLoading}
+  className="flex w-full items-center justify-center gap-3 rounded-full border border-[#f4efe6]/10 bg-[#f4efe6] px-6 py-4 text-sm font-black text-[#140d0d] transition hover:bg-[#c9a45c] disabled:cursor-not-allowed disabled:opacity-60"
+>
+  Google-ით შესვლა
+</button>
+<div className="my-5 flex items-center gap-3">
+  <div className="h-px flex-1 bg-[#f4efe6]/10" />
+  <span className="text-xs font-bold text-[#756b63]">ან</span>
+  <div className="h-px flex-1 bg-[#f4efe6]/10" />
+</div>
           <div className="mt-7 space-y-4">
             <input
               value={email}
