@@ -12,11 +12,11 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   KeyboardEvent,
   MouseEvent,
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -61,8 +61,38 @@ type SavedMessage = {
   created_at: string;
 };
 
+type StableAssistantAvatarProps = {
+  src?: string;
+  alt: string;
+};
+
 const GUEST_FREE_LIMIT = 5;
 const GUEST_USAGE_KEY = "echo_georgia_guest_questions_used";
+
+const StableAssistantAvatar = memo(function StableAssistantAvatar({
+  src,
+  alt,
+}: StableAssistantAvatarProps) {
+  if (src) {
+    return (
+      <div
+        aria-label={alt}
+        role="img"
+        className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010] bg-cover bg-center [backface-visibility:hidden] [transform:translateZ(0)]"
+        style={{
+          backgroundImage: `url("${src}")`,
+          WebkitTransform: "translateZ(0)",
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
+      <Bot size={16} />
+    </div>
+  );
+});
 
 function getGuestUsageCount() {
   if (typeof window === "undefined") return 0;
@@ -95,6 +125,46 @@ function formatSavedConversationDate(value: string) {
   });
 }
 
+function pickSuggestedQuestions(questions: string[], figureSlug: string) {
+  if (typeof window === "undefined") {
+    return questions.slice(0, 3);
+  }
+
+  if (questions.length <= 3) {
+    return questions;
+  }
+
+  const storageKey = `echo_suggested_questions_${figureSlug}`;
+  const previousValue = window.sessionStorage.getItem(storageKey);
+
+  let previousQuestions: string[] = [];
+
+  try {
+    previousQuestions = previousValue ? JSON.parse(previousValue) : [];
+  } catch {
+    previousQuestions = [];
+  }
+
+  const shuffled = [...questions].sort(() => Math.random() - 0.5);
+  let selected = shuffled.slice(0, 3);
+
+  const isSameAsPrevious =
+    previousQuestions.length === selected.length &&
+    selected.every((question) => previousQuestions.includes(question));
+
+  if (isSameAsPrevious) {
+    selected = shuffled.slice(1, 4);
+
+    if (selected.length < 3) {
+      selected = [...selected, shuffled[0]];
+    }
+  }
+
+  window.sessionStorage.setItem(storageKey, JSON.stringify(selected));
+
+  return selected;
+}
+
 export default function FigureChat({ figure }: { figure: Figure }) {
   const initialAssistantMessage: Message = {
     id: 1,
@@ -103,6 +173,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       figure.greeting ??
       `გამარჯობა, მე ${figure.nameKa} ვარ. მკითხე, რა გაინტერესებს.`,
   };
+
+  const avatarImage = figure.iconImage ?? figure.image;
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([
@@ -114,6 +186,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
   const [guestUsageCount, setGuestUsageCountState] = useState(0);
   const [limitNotice, setLimitNotice] = useState<LimitNotice | null>(null);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
 
   const [savedConversations, setSavedConversations] = useState<
     SavedConversation[]
@@ -144,6 +217,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
+
+  useEffect(() => {
+    setSuggestedQuestions(pickSuggestedQuestions(figure.questions, figure.slug));
+  }, [figure.questions, figure.slug]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -706,34 +783,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     );
   }
 
-  function AssistantAvatar() {
-  const avatarImage = figure.iconImage ?? figure.image;
-
-  if (avatarImage) {
-    return (
-      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010] [backface-visibility:hidden] [transform:translateZ(0)]">
-        <Image
-          src={avatarImage}
-          alt={figure.nameKa}
-          fill
-          unoptimized
-          sizes="36px"
-          className="object-cover"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
-      <Bot size={16} />
-    </div>
-  );
-}
-
   const hasUserMessage = messages.some((message) => message.role === "user");
   const shouldShowSuggestedQuestions =
-    !hasUserMessage && !isOpeningConversation && !limitNotice;
+    !hasUserMessage &&
+    !isOpeningConversation &&
+    !limitNotice &&
+    suggestedQuestions.length > 0;
 
   return (
     <section className="relative z-10 mx-auto grid h-[calc(100vh-120px)] max-w-7xl gap-5 overflow-hidden pb-0 lg:grid-cols-[250px_minmax(0,1fr)]">
@@ -758,7 +813,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
         <div className="mb-4 shrink-0 rounded-2xl border border-[#c9a45c]/16 bg-[#c9a45c]/8 p-3">
           <div className="flex items-center gap-3">
-            <AssistantAvatar />
+            <StableAssistantAvatar src={avatarImage} alt={figure.nameKa} />
 
             <div className="min-w-0">
               <p className="truncate text-sm font-black text-[#f4efe6]">
@@ -877,7 +932,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         <header className="shrink-0 border-b border-[#f4efe6]/8 px-5 py-4 sm:px-7">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <AssistantAvatar />
+              <StableAssistantAvatar src={avatarImage} alt={figure.nameKa} />
 
               <div>
                 <h1 className="text-xl font-black tracking-[-0.03em] sm:text-2xl">
@@ -911,7 +966,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                     isUser ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {!isUser && <AssistantAvatar />}
+                  {!isUser && (
+                    <StableAssistantAvatar
+                      src={avatarImage}
+                      alt={figure.nameKa}
+                    />
+                  )}
 
                   <div
                     className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leading-6 sm:text-sm sm:leading-7 ${
@@ -987,14 +1047,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             )}
 
             {shouldShowSuggestedQuestions && (
-              <div className="mb-2 flex max-h-12 flex-wrap gap-1.5 overflow-hidden">
-                {figure.questions.map((question) => (
+              <div className="mb-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                {suggestedQuestions.map((question) => (
                   <button
                     key={question}
                     type="button"
                     onClick={() => void sendMessage(question)}
                     disabled={isLoading || isOpeningConversation}
-                    className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/4 px-2.5 py-1 text-left text-[10px] font-semibold leading-4 text-[#b8aea3] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="truncate rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/4 px-3 py-1.5 text-left text-[10px] font-semibold leading-4 text-[#b8aea3] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {question}
                   </button>
