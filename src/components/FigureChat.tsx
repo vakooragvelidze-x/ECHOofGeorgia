@@ -707,27 +707,29 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }
 
   function AssistantAvatar() {
-    const avatarImage = figure.iconImage ?? figure.image;
+  const avatarImage = figure.iconImage ?? figure.image;
 
-    if (avatarImage) {
-      return (
-       <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010] [transform:translateZ(0)]"></div>
-          <img
-  src={avatarImage}
-  alt={figure.nameKa}
-  className="h-full w-full object-cover"
-/>
-        </div>
-      );
-    }
-
+  if (avatarImage) {
     return (
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
-        <Bot size={16} />
+      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010] [backface-visibility:hidden] [transform:translateZ(0)]">
+        <Image
+          src={avatarImage}
+          alt={figure.nameKa}
+          fill
+          unoptimized
+          sizes="36px"
+          className="object-cover"
+        />
       </div>
     );
   }
+
+  return (
+    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
+      <Bot size={16} />
+    </div>
+  );
+}
 
   const hasUserMessage = messages.some((message) => message.role === "user");
   const shouldShowSuggestedQuestions =
