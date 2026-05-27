@@ -1,13 +1,11 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,39 +14,40 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  event.preventDefault();
 
-    setError("");
-    setIsLoading(true);
+  setError("");
+  setIsLoading(true);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
+  try {
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        fullName,
+        email,
+        password,
+      }),
     });
 
-    if (signUpError) {
-      setError(signUpError.message);
-      setIsLoading(false);
-      return;
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Registration failed.");
     }
 
-    if (data.user) {
-      await supabase.from("profiles").insert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-      });
-    }
-
-    setIsLoading(false);
     router.push("/account");
     router.refresh();
+  } catch (error) {
+    setError(
+      error instanceof Error ? error.message : "Registration failed."
+    );
+  } finally {
+    setIsLoading(false);
   }
+}
 
   return (
     <main className="min-h-screen bg-[#0e0b0b] px-5 py-10 text-[#f4efe6]">
