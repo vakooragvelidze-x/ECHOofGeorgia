@@ -1,12 +1,15 @@
 import { buildAnswerVariationInstruction } from "@/data/answerVariation";
 import { buildFigureSystemPrompt } from "@/data/figurePrompts";
 import { getFigureBySlug } from "@/data/figures";
+import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 type ChatMessage = {
   role: "user" | "assistant";
   text: string;
 };
+
+const FREE_DAILY_LIMIT = 15;
 
 function formatConversation(messages: ChatMessage[]) {
   return messages
@@ -25,6 +28,12 @@ function getErrorMessage(error: unknown) {
   return "Unknown server error.";
 }
 
+function getTodayStartIso() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString();
+}
+
 function extractDeltaFromSseJson(jsonText: string) {
   try {
     const event = JSON.parse(jsonText) as {
@@ -35,18 +44,65 @@ function extractDeltaFromSseJson(jsonText: string) {
       };
     };
 
-    if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+    if (
+      event.type === "response.output_text.delta" &&
+      typeof event.delta === "string"
+    ) {
       return event.delta;
     }
 
     if (event.type === "error") {
-      return `\n\nშეცდომა: ${event.error?.message ?? "Unknown streaming error."}`;
+      return `\n\nშეცდომა: ${
+        event.error?.message ?? "Unknown streaming error."
+      }`;
     }
 
     return "";
   } catch {
     return "";
   }
+}
+
+async function getUserPlanAndUsage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      user: null,
+      plan: "guest",
+      todayUsageCount: 0,
+      supabase,
+    };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const plan = profile?.plan ?? "free";
+
+  const { count } = await supabase
+    .from("usage_events")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("user_id", user.id)
+    .eq("event_type", "chat_message")
+    .gte("created_at", getTodayStartIso());
+
+  return {
+    user,
+    plan,
+    todayUsageCount: count ?? 0,
+    supabase,
+  };
 }
 
 export async function POST(request: Request) {
@@ -91,6 +147,33 @@ export async function POST(request: Request) {
       );
     }
 
+    const { user, plan, todayUsageCount, supabase } =
+      await getUserPlanAndUsage();
+
+    const isRegisteredFreeUser = user && plan !== "premium";
+
+    if (isRegisteredFreeUser && todayUsageCount >= FREE_DAILY_LIMIT) {
+      return NextResponse.json(
+        {
+          code: "FREE_DAILY_LIMIT_REACHED",
+          error: "Daily free question limit reached.",
+          message:
+            "დღიური უფასო ლიმიტი ამოიწურა. Premium გეგმით მიიღებ მეტ კითხვას.",
+          limit: FREE_DAILY_LIMIT,
+          used: todayUsageCount,
+          plan,
+        },
+        { status: 429 }
+      );
+    }
+
+    if (user) {
+      await supabase.from("usage_events").insert({
+        user_id: user.id,
+        event_type: "chat_message",
+      });
+    }
+
     const safeMessages = messages
       .filter(
         (message) =>
@@ -101,7 +184,10 @@ export async function POST(request: Request) {
       .slice(-8);
 
     const systemPrompt = buildFigureSystemPrompt(figure);
-    const answerVariation = buildAnswerVariationInstruction(figure, safeMessages);
+    const answerVariation = buildAnswerVariationInstruction(
+      figure,
+      safeMessages
+    );
     const conversation = formatConversation(safeMessages);
 
     const input = `
@@ -115,11 +201,6 @@ ${conversation}
 Answer only the latest user message.
 
 Important:
-- Match answer length to the question.
-- If the user is only greeting or asking a casual/simple question, answer briefly in 1–3 sentences.
-- Do not turn casual messages into lectures.
-- Keep normal answers around 80–140 words.
-- Go longer only if the user asks for depth, analysis, essay, or detailed explanation.
 - Speak in first person by default.
 - Give a real answer, not a disclaimer.
 - Do not answer like an encyclopedia unless the user asks for facts.
@@ -129,7 +210,11 @@ Important:
 - Prefer one strong clear idea over many weak generic points.
 - If the user asks the same or similar question again, do not repeat the same answer.
 - Use a fresh angle, fresh sentence rhythm, and fresh conclusion while staying faithful to ${figure.nameKa}.
-- Keep normal answers around 90–180 words unless the user asks for depth.
+- Match answer length to the question.
+- If the user is only greeting or asking a casual/simple question, answer briefly in 1–3 sentences.
+- Do not turn casual messages into lectures.
+- Keep normal answers around 80–140 words.
+- Go longer only if the user asks for depth, analysis, essay, or detailed explanation.
 `;
 
     const openaiResponse = await fetch("https://api.openai.com/v1/responses", {

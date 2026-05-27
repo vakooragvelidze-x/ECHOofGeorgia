@@ -1,9 +1,11 @@
 "use client";
 
 import type { Figure } from "@/data/figures";
+import { createClient } from "@/lib/supabase/client";
 import {
   Bot,
   Clock3,
+  LogIn,
   MessageCircle,
   Plus,
   Send,
@@ -11,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   KeyboardEvent,
   MouseEvent,
@@ -26,31 +29,74 @@ type Message = {
   text: string;
 };
 
+type AuthStatus = "loading" | "guest" | "user";
+
+type LimitNotice = {
+  title: string;
+  description: string;
+  type: "guest" | "free";
+};
+
+type ChatErrorResponse = {
+  code?: string;
+  error?: string;
+  message?: string;
+  limit?: number;
+  used?: number;
+  plan?: string;
+};
+
+const GUEST_FREE_LIMIT = 5;
+const GUEST_USAGE_KEY = "echo_georgia_guest_questions_used";
+
+function getGuestUsageCount() {
+  if (typeof window === "undefined") return 0;
+
+  const storedValue = window.localStorage.getItem(GUEST_USAGE_KEY);
+  const parsedValue = Number.parseInt(storedValue ?? "0", 10);
+
+  if (Number.isNaN(parsedValue)) {
+    return 0;
+  }
+
+  return parsedValue;
+}
+
+function setGuestUsageCount(value: number) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(GUEST_USAGE_KEY, String(value));
+}
+
 export default function FigureChat({ figure }: { figure: Figure }) {
+  const initialAssistantMessage: Message = {
+    id: 1,
+    role: "assistant",
+    text:
+      figure.greeting ??
+      `გამარჯობა, მე ${figure.nameKa} ვარ. მკითხე, რა გაინტერესებს.`,
+  };
+
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([
+    initialAssistantMessage,
+  ]);
   const [isLoading, setIsLoading] = useState(false);
   const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
   const [slowThinkingText, setSlowThinkingText] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
+  const [guestUsageCount, setGuestUsageCountState] = useState(0);
+  const [limitNotice, setLimitNotice] = useState<LimitNotice | null>(null);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef<number | null>(null);
   const slowThinkingTimerRef = useRef<number | null>(null);
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      role: "assistant",
-      text:
-        figure.greeting ??
-        `გამარჯობა, მე ${figure.nameKa} ვარ. მკითხე, რა გაინტერესებს.`,
-    },
-  ]);
-
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       const element = chatRef.current;
       if (!element) return;
+
       element.scrollTop = element.scrollHeight;
     });
   }, []);
@@ -60,6 +106,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
 
   useEffect(() => {
+    const supabase = createClient();
+
+    setGuestUsageCountState(getGuestUsageCount());
+
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthStatus(data.user ? "user" : "guest");
+    });
+
     return () => {
       stopGeneration();
     };
@@ -88,6 +142,42 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setIsLoading(false);
   }
 
+  function startNewChat() {
+    stopGeneration();
+    setInput("");
+    setLimitNotice(null);
+    setMessages([initialAssistantMessage]);
+  }
+
+  function showGuestLimitNotice() {
+    setLimitNotice({
+      type: "guest",
+      title: "საცდელი ლიმიტი ამოიწურა",
+      description:
+        "ანგარიშის შექმნის შემდეგ მიიღებ 15 კითხვას დღეში და მოგვიანებით შეძლებ საუბრების შენახვას.",
+    });
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: Date.now(),
+        role: "assistant",
+        text:
+          "საცდელი ლიმიტი ამოიწურა. შექმენი ანგარიში, რომ მიიღო 15 კითხვა დღეში და გააგრძელო საუბარი.",
+      },
+    ]);
+  }
+
+  function showFreeLimitNotice(message?: string) {
+    setLimitNotice({
+      type: "free",
+      title: "დღიური უფასო ლიმიტი ამოიწურა",
+      description:
+        message ??
+        "Premium გეგმით მიიღებ მეტ კითხვას და უფრო თავისუფლად შეძლებ საუბარს.",
+    });
+  }
+
   function updateStreamingAssistantMessage(
     assistantId: number,
     requestId: number,
@@ -107,11 +197,58 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     );
   }
 
+  async function handleErrorResponse(
+    response: Response,
+    assistantId: number,
+    requestId: number
+  ) {
+    const errorText = await response.text();
+
+    let payload: ChatErrorResponse | null = null;
+
+    try {
+      payload = JSON.parse(errorText) as ChatErrorResponse;
+    } catch {
+      payload = null;
+    }
+
+    if (payload?.code === "FREE_DAILY_LIMIT_REACHED") {
+      const limitMessage =
+        payload.message ??
+        "დღიური უფასო ლიმიტი ამოიწურა. Premium გეგმით მიიღებ მეტ კითხვას.";
+
+      showFreeLimitNotice(limitMessage);
+
+      updateStreamingAssistantMessage(assistantId, requestId, limitMessage);
+
+      activeRequestIdRef.current = null;
+      abortControllerRef.current = null;
+      clearSlowThinkingTimer();
+      setTypingMessageId(null);
+      setIsLoading(false);
+
+      return;
+    }
+
+    throw new Error(payload?.error || errorText || "Failed to generate response.");
+  }
+
   async function sendMessage(messageText?: string) {
     const finalMessage = (messageText ?? input).trim();
 
     if (!finalMessage) return;
     if (isLoading) return;
+
+    if (authStatus === "guest") {
+      const currentGuestUsage = getGuestUsageCount();
+
+      if (currentGuestUsage >= GUEST_FREE_LIMIT) {
+        showGuestLimitNotice();
+        return;
+      }
+    }
+
+    setLimitNotice(null);
 
     const requestId = Date.now();
     const assistantId = requestId + 1;
@@ -168,12 +305,18 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Failed to generate response.");
+        await handleErrorResponse(response, assistantId, requestId);
+        return;
       }
 
       if (!response.body) {
         throw new Error("No response stream received.");
+      }
+
+      if (authStatus === "guest") {
+        const nextGuestUsage = getGuestUsageCount() + 1;
+        setGuestUsageCount(nextGuestUsage);
+        setGuestUsageCountState(nextGuestUsage);
       }
 
       const reader = response.body.getReader();
@@ -237,7 +380,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       updateStreamingAssistantMessage(
         assistantId,
         requestId,
-        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე API key, მოდელის სახელი და სცადე თავიდან."
+        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე კავშირი და სცადე თავიდან."
       );
 
       clearSlowThinkingTimer();
@@ -320,6 +463,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       <aside className="hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-4 backdrop-blur-xl lg:block">
         <button
           type="button"
+          onClick={startNewChat}
           className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
         >
           <Plus size={16} />
@@ -338,10 +482,33 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             </div>
           </div>
 
-          <p className="text-xs leading-5 text-[#b8aea3]">
-            {figure.role}
-          </p>
+          <p className="text-xs leading-5 text-[#b8aea3]">{figure.role}</p>
         </div>
+
+        {authStatus === "guest" && (
+          <div className="mb-5 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 p-4">
+            <p className="text-sm font-black text-[#f4efe6]">
+              საცდელი რეჟიმი
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#b8aea3]">
+              გამოყენებულია {guestUsageCount}/{GUEST_FREE_LIMIT} უფასო კითხვა.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Link
+                href="/register"
+                className="rounded-full bg-[#c9a45c] px-3 py-2 text-xs font-black text-[#140d0d]"
+              >
+                რეგისტრაცია
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-full border border-[#f4efe6]/10 px-3 py-2 text-xs font-bold text-[#f4efe6]"
+              >
+                შესვლა
+              </Link>
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#756b63]">
@@ -398,7 +565,9 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               return (
                 <div
                   key={message.id}
-                  className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+                  className={`flex gap-3 ${
+                    isUser ? "justify-end" : "justify-start"
+                  }`}
                 >
                   {!isUser && <AssistantAvatar />}
 
@@ -435,6 +604,46 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
         <div className="border-t border-[#f4efe6]/8 px-5 py-4 sm:px-7">
           <div className="mx-auto max-w-3xl">
+            {limitNotice && (
+              <div className="mb-4 rounded-2xl border border-[#c9a45c]/25 bg-[#c9a45c]/10 p-4">
+                <p className="text-sm font-black text-[#f4efe6]">
+                  {limitNotice.title}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[#d9d0c5]">
+                  {limitNotice.description}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {limitNotice.type === "guest" && (
+                    <>
+                      <Link
+                        href="/register"
+                        className="inline-flex items-center gap-2 rounded-full bg-[#c9a45c] px-4 py-2 text-xs font-black text-[#140d0d]"
+                      >
+                        <UserRound size={14} />
+                        რეგისტრაცია
+                      </Link>
+
+                      <Link
+                        href="/login"
+                        className="inline-flex items-center gap-2 rounded-full border border-[#f4efe6]/10 px-4 py-2 text-xs font-bold text-[#f4efe6]"
+                      >
+                        <LogIn size={14} />
+                        შესვლა
+                      </Link>
+                    </>
+                  )}
+
+                  <Link
+                    href="/pricing"
+                    className="rounded-full border border-[#c9a45c]/25 bg-[#0e0b0b] px-4 py-2 text-xs font-black text-[#d8c08a]"
+                  >
+                    Premium გეგმა
+                  </Link>
+                </div>
+              </div>
+            )}
+
             <div className="mb-3 flex flex-wrap gap-2">
               {figure.questions.map((question) => (
                 <button
