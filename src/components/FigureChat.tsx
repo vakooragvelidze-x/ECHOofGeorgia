@@ -1,7 +1,15 @@
 "use client";
 
 import type { Figure } from "@/data/figures";
-import { Bot, MessageCircle, Send, Square, UserRound } from "lucide-react";
+import {
+  Bot,
+  Clock3,
+  MessageCircle,
+  Plus,
+  Send,
+  Square,
+  UserRound,
+} from "lucide-react";
 import Image from "next/image";
 import {
   KeyboardEvent,
@@ -18,12 +26,6 @@ type Message = {
   text: string;
 };
 
-type ScrollThumb = {
-  top: number;
-  height: number;
-  visible: boolean;
-};
-
 export default function FigureChat({ figure }: { figure: Figure }) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,12 +37,6 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const activeRequestIdRef = useRef<number | null>(null);
   const slowThinkingTimerRef = useRef<number | null>(null);
 
-  const [scrollThumb, setScrollThumb] = useState<ScrollThumb>({
-    top: 0,
-    height: 40,
-    visible: false,
-  });
-
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -51,60 +47,24 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     },
   ]);
 
-  const updateScrollThumb = useCallback(() => {
-    const element = chatRef.current;
-    if (!element) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = element;
-    const isScrollable = scrollHeight > clientHeight + 8;
-
-    if (!isScrollable) {
-      setScrollThumb({
-        top: 0,
-        height: 40,
-        visible: false,
-      });
-      return;
-    }
-
-    const trackHeight = clientHeight - 32;
-    const thumbHeight = Math.max(38, (clientHeight / scrollHeight) * trackHeight);
-    const maxThumbTop = trackHeight - thumbHeight;
-    const maxScrollTop = scrollHeight - clientHeight;
-    const thumbTop =
-      maxScrollTop > 0 ? (scrollTop / maxScrollTop) * maxThumbTop : 0;
-
-    setScrollThumb({
-      top: thumbTop,
-      height: thumbHeight,
-      visible: true,
-    });
-  }, []);
-
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       const element = chatRef.current;
       if (!element) return;
-
       element.scrollTop = element.scrollHeight;
-      updateScrollThumb();
     });
-  }, [updateScrollThumb]);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
 
   useEffect(() => {
-    updateScrollThumb();
-    window.addEventListener("resize", updateScrollThumb);
-
     return () => {
-      window.removeEventListener("resize", updateScrollThumb);
       stopGeneration();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateScrollThumb]);
+  }, []);
 
   function clearSlowThinkingTimer() {
     if (slowThinkingTimerRef.current) {
@@ -336,12 +296,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
     if (avatarImage) {
       return (
-        <div className="relative mt-1 h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
           <Image
             src={avatarImage}
             alt={figure.nameKa}
             fill
-            sizes="40px"
+            sizes="36px"
             className="object-cover grayscale sepia-[0.22] contrast-110"
           />
         </div>
@@ -349,140 +309,175 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
 
     return (
-      <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
-        <Bot size={17} />
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
+        <Bot size={16} />
       </div>
     );
   }
 
   return (
-    <section className="relative z-10 mx-auto max-w-7xl pb-8">
-      <div className="rounded-[2.2rem] border border-[#f4efe6]/10 bg-[#171010]/82 p-4 shadow-2xl backdrop-blur-xl sm:p-6">
-        <div className="mb-5 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-4">
+    <section className="relative z-10 mx-auto grid max-w-7xl gap-5 pb-10 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-4 backdrop-blur-xl lg:block">
+        <button
+          type="button"
+          className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
+        >
+          <Plus size={16} />
+          ახალი საუბარი
+        </button>
+
+        <div className="mb-5 rounded-2xl border border-[#c9a45c]/18 bg-[#c9a45c]/10 p-4">
+          <div className="mb-3 flex items-center gap-3">
             <AssistantAvatar />
 
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a]">
-                <MessageCircle size={14} />
-                საუბრის ოთახი
-              </div>
-
-              <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+              <p className="text-sm font-black text-[#f4efe6]">
                 {figure.nameKa}
-              </h2>
-
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#b8aea3]">
-                დასვი კითხვა მის ცხოვრებაზე, იდეებზე, ეპოქაზე ან დღევანდელ
-                საკითხებზე.
               </p>
+              <p className="mt-1 text-xs text-[#d8c08a]">{figure.era}</p>
             </div>
           </div>
 
-          <div className="flex max-w-2xl flex-wrap gap-2">
-            {figure.questions.map((question) => (
-              <button
-                key={question}
-                type="button"
-                onClick={() => void sendMessage(question)}
-                disabled={isLoading}
-                className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-2.5 text-left text-xs font-semibold leading-5 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {question}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs leading-5 text-[#b8aea3]">
+            {figure.role}
+          </p>
         </div>
 
-        <div className="relative">
-          <div
-            ref={chatRef}
-            onScroll={updateScrollThumb}
-            className="chat-scroll-area h-[58vh] min-h-[460px] overflow-y-auto rounded-[1.6rem] border border-[#f4efe6]/10 bg-[#090707] p-4 pr-8 sm:p-5 sm:pr-9"
-          >
-            <div className="space-y-5">
-              {messages.map((message) => {
-                const isUser = message.role === "user";
-                const isTyping = typingMessageId === message.id;
+        <div>
+          <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#756b63]">
+            <Clock3 size={14} />
+            საუბრები
+          </div>
 
-                return (
+          <div className="space-y-2">
+            <button
+              type="button"
+              className="w-full rounded-xl bg-[#f4efe6]/6 px-3 py-3 text-left text-sm leading-5 text-[#d9d0c5]"
+            >
+              მიმდინარე საუბარი
+            </button>
+
+            <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
+              შენახული საუბრები აქ გამოჩნდება შემდეგ ეტაპზე.
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex min-h-[calc(100vh-140px)] flex-col rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 backdrop-blur-xl">
+        <header className="border-b border-[#f4efe6]/8 px-5 py-4 sm:px-7">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AssistantAvatar />
+
+              <div>
+                <h1 className="text-xl font-black tracking-[-0.03em] sm:text-2xl">
+                  {figure.nameKa}
+                </h1>
+                <p className="mt-1 text-xs text-[#b8aea3]">
+                  {figure.nameEn} · {figure.years}
+                </p>
+              </div>
+            </div>
+
+            <div className="hidden rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a] sm:block">
+              {figure.era}
+            </div>
+          </div>
+        </header>
+
+        <div
+          ref={chatRef}
+          className="chat-scroll-area flex-1 overflow-y-auto px-5 py-6 sm:px-7"
+        >
+          <div className="mx-auto max-w-3xl space-y-6">
+            {messages.map((message) => {
+              const isUser = message.role === "user";
+              const isTyping = typingMessageId === message.id;
+
+              return (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+                >
+                  {!isUser && <AssistantAvatar />}
+
                   <div
-                    key={message.id}
-                    className={`flex gap-3 ${
-                      isUser ? "justify-end" : "justify-start"
+                    className={`max-w-[82%] whitespace-pre-line rounded-3xl px-5 py-4 text-sm leading-7 sm:text-base sm:leading-8 ${
+                      isUser
+                        ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
+                        : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                     }`}
                   >
-                    {!isUser && <AssistantAvatar />}
+                    {message.text ? (
+                      message.text
+                    ) : isTyping ? (
+                      <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
+                    ) : (
+                      ""
+                    )}
 
-                    <div
-                      className={`max-w-[84%] whitespace-pre-line rounded-3xl p-5 text-sm leading-7 sm:text-base sm:leading-8 ${
-                        isUser
-                          ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
-                          : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
-                      }`}
-                    >
-                      {message.text ? (
-                        message.text
-                      ) : isTyping ? (
-                        <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
-                      ) : (
-                        ""
-                      )}
-
-                      {isTyping && message.text && (
-                        <span className="typing-cursor ml-1 inline-block h-4 w-[2px] translate-y-[2px] bg-[#c9a45c]" />
-                      )}
-                    </div>
-
-                    {isUser && (
-                      <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4efe6] text-[#140d0d]">
-                        <UserRound size={17} />
-                      </div>
+                    {isTyping && message.text && (
+                      <span className="typing-cursor ml-1 inline-block h-4 w-[2px] translate-y-[2px] bg-[#c9a45c]" />
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {scrollThumb.visible && (
-            <div className="pointer-events-none absolute bottom-4 right-3 top-4 w-1 rounded-full bg-[#f4efe6]/5">
-              <div
-                className="w-full rounded-full bg-[#c9a45c]/60 shadow-[0_0_16px_rgba(201,164,92,0.35)]"
-                style={{
-                  height: `${scrollThumb.height}px`,
-                  transform: `translateY(${scrollThumb.top}px)`,
-                }}
-              />
-            </div>
-          )}
+                  {isUser && (
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f4efe6] text-[#140d0d]">
+                      <UserRound size={16} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-5 flex gap-3">
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={handleInputKeyDown}
-            placeholder={
-              isLoading ? "პასუხის გაჩერება შეგიძლია..." : "დაწერე კითხვა..."
-            }
-            className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40"
-          />
+        <div className="border-t border-[#f4efe6]/8 px-5 py-4 sm:px-7">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {figure.questions.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={() => void sendMessage(question)}
+                  disabled={isLoading}
+                  className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3.5 py-2 text-left text-xs font-semibold leading-5 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
 
-          <button
-            type="button"
-            onClick={handleSendClick}
-            className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition ${
-              isLoading
-                ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
-                : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"
-            }`}
-          >
-            <span className="hidden sm:inline">
-              {isLoading ? "გაჩერება" : "გაგზავნა"}
-            </span>
-            {isLoading ? <Square size={16} /> : <Send size={17} />}
-          </button>
+            <div className="flex gap-3">
+              <input
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleInputKeyDown}
+                placeholder={
+                  isLoading
+                    ? "პასუხის გაჩერება შეგიძლია..."
+                    : "დაწერე კითხვა..."
+                }
+                className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40"
+              />
+
+              <button
+                type="button"
+                onClick={handleSendClick}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition ${
+                  isLoading
+                    ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
+                    : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"
+                }`}
+              >
+                <span className="hidden sm:inline">
+                  {isLoading ? "გაჩერება" : "გაგზავნა"}
+                </span>
+                {isLoading ? <Square size={16} /> : <Send size={17} />}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
