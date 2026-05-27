@@ -1,8 +1,7 @@
-import { ArrowRight, MessageCircle, Sparkles } from "lucide-react";
-import Image from "next/image";
+import { ArrowRight, LogIn, MessageCircle, Sparkles, UserRound } from "lucide-react";import Image from "next/image";
 import Link from "next/link";
 import { figures } from "@/data/figures";
-
+import { createClient } from "@/lib/supabase/server";
 function getFigureImagePosition(slug: string) {
   const positions: Record<string, string> = {
     "ilia-chavchavadze": "center 22%",
@@ -15,8 +14,14 @@ function getFigureImagePosition(slug: string) {
   return positions[slug] ?? "center 28%";
 }
 
-export default function HomePage() {
+export default async function HomePage() {
   const featuredFigure = figures[0];
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0e0b0b] text-[#f4efe6]">
@@ -44,12 +49,23 @@ export default function HomePage() {
             </a>
           </div>
 
-          <a
-            href="#figures"
-            className="rounded-full bg-[#f4efe6] px-5 py-2.5 text-sm font-bold text-[#140d0d] transition hover:bg-[#c9a45c]"
-          >
-            დაიწყე
-          </a>
+          {user ? (
+  <Link
+    href="/account"
+    className="inline-flex items-center gap-2 rounded-full bg-[#f4efe6] px-5 py-2.5 text-sm font-bold text-[#140d0d] transition hover:bg-[#c9a45c]"
+  >
+    <UserRound size={16} />
+    ანგარიში
+  </Link>
+) : (
+  <Link
+    href="/login"
+    className="inline-flex items-center gap-2 rounded-full bg-[#f4efe6] px-5 py-2.5 text-sm font-bold text-[#140d0d] transition hover:bg-[#c9a45c]"
+  >
+    <LogIn size={16} />
+    შესვლა
+  </Link>
+)}
         </nav>
 
         <div className="relative z-10 mx-auto grid min-h-[calc(100vh-92px)] max-w-7xl items-center gap-12 py-16 lg:grid-cols-[1fr_0.9fr]">
