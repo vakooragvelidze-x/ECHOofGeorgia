@@ -3,39 +3,39 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const code = body.code as string | undefined;
+    const code = typeof body.code === "string" ? body.code.trim() : "";
 
-    const correctCode = process.env.ECHO_ACCESS_CODE;
+    const accessCode = process.env.ACCESS_CODE;
 
-    if (!correctCode) {
+    if (!accessCode) {
       return NextResponse.json(
-        { error: "Missing ECHO_ACCESS_CODE on server." },
+        { error: "Missing ACCESS_CODE in .env.local." },
         { status: 500 }
       );
     }
 
-    if (!code || code.trim() !== correctCode) {
+    if (code !== accessCode) {
       return NextResponse.json(
-        { error: "არასწორი access code." },
+        { error: "Incorrect access code." },
         { status: 401 }
       );
     }
 
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({ success: true });
 
     response.cookies.set("echo_access", "granted", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 30,
     });
 
     return response;
   } catch {
     return NextResponse.json(
-      { error: "Access check failed." },
-      { status: 500 }
+      { error: "Invalid request." },
+      { status: 400 }
     );
   }
 }

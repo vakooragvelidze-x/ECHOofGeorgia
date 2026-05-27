@@ -123,6 +123,7 @@ export async function POST(request: Request) {
 
     const slug = body.slug as string | undefined;
     const messages = body.messages as ChatMessage[] | undefined;
+    const conversationId = body.conversationId as string | undefined;
 
     if (!slug) {
       return NextResponse.json(
@@ -167,11 +168,47 @@ export async function POST(request: Request) {
       );
     }
 
+    let verifiedConversationId: string | null = null;
+
+    if (user && conversationId) {
+      const { data: conversation } = await supabase
+        .from("conversations")
+        .select("id, figure_slug")
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (conversation && conversation.figure_slug === slug) {
+        verifiedConversationId = conversation.id;
+      }
+    }
+
     if (user) {
       await supabase.from("usage_events").insert({
         user_id: user.id,
         event_type: "chat_message",
       });
+    }
+
+    const latestUserMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+
+    if (user && verifiedConversationId && latestUserMessage) {
+      await supabase.from("messages").insert({
+        conversation_id: verifiedConversationId,
+        user_id: user.id,
+        role: "user",
+        content: latestUserMessage.text,
+      });
+
+      await supabase
+        .from("conversations")
+        .update({
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", verifiedConversationId)
+        .eq("user_id", user.id);
     }
 
     const safeMessages = messages
@@ -257,6 +294,7 @@ Important:
     const reader = openaiResponse.body.getReader();
 
     let buffer = "";
+    let fullAssistantText = "";
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -290,10 +328,33 @@ Important:
                 const delta = extractDeltaFromSseJson(data);
 
                 if (delta) {
+                  fullAssistantText += delta;
                   controller.enqueue(encoder.encode(delta));
                 }
               }
             }
+          }
+
+          if (
+            user &&
+            verifiedConversationId &&
+            fullAssistantText.trim().length > 0 &&
+            !request.signal.aborted
+          ) {
+            await supabase.from("messages").insert({
+              conversation_id: verifiedConversationId,
+              user_id: user.id,
+              role: "assistant",
+              content: fullAssistantText.trim(),
+            });
+
+            await supabase
+              .from("conversations")
+              .update({
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", verifiedConversationId)
+              .eq("user_id", user.id);
           }
 
           controller.close();

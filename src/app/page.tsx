@@ -2,6 +2,7 @@ import { ArrowRight, LogIn, MessageCircle, Sparkles, UserRound } from "lucide-re
 import Link from "next/link";
 import { figures } from "@/data/figures";
 import { createClient } from "@/lib/supabase/server";
+export const dynamic = "force-dynamic";
 function getFigureImagePosition(slug: string) {
   const positions: Record<string, string> = {
     "ilia-chavchavadze": "center 22%",

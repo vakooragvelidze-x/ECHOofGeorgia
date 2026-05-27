@@ -10,7 +10,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.includes(".");
 
-  if (isAccessPage || isAccessApi || isStaticAsset) {
+  if (isAccessApi || isStaticAsset) {
     return NextResponse.next();
   }
 
@@ -24,6 +24,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (isAccessPage) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api/")) {
     return NextResponse.json(
       { error: "Access required." },
@@ -31,8 +35,7 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  const accessUrl = new URL("/access", request.url);
-  return NextResponse.redirect(accessUrl);
+  return NextResponse.redirect(new URL("/access", request.url));
 }
 
 export const config = {

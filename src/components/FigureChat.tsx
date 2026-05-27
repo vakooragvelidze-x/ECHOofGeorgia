@@ -46,6 +46,21 @@ type ChatErrorResponse = {
   plan?: string;
 };
 
+type SavedConversation = {
+  id: string;
+  figure_slug: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type SavedMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
 const GUEST_FREE_LIMIT = 5;
 const GUEST_USAGE_KEY = "echo_georgia_guest_questions_used";
 
@@ -67,6 +82,19 @@ function setGuestUsageCount(value: number) {
   window.localStorage.setItem(GUEST_USAGE_KEY, String(value));
 }
 
+function formatSavedConversationDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString("ka-GE", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function FigureChat({ figure }: { figure: Figure }) {
   const initialAssistantMessage: Message = {
     id: 1,
@@ -86,6 +114,15 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
   const [guestUsageCount, setGuestUsageCountState] = useState(0);
   const [limitNotice, setLimitNotice] = useState<LimitNotice | null>(null);
+
+  const [savedConversations, setSavedConversations] = useState<
+    SavedConversation[]
+  >([]);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [isOpeningConversation, setIsOpeningConversation] = useState(false);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -111,7 +148,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setGuestUsageCountState(getGuestUsageCount());
 
     supabase.auth.getUser().then(({ data }) => {
-      setAuthStatus(data.user ? "user" : "guest");
+      const nextStatus = data.user ? "user" : "guest";
+      setAuthStatus(nextStatus);
+
+      if (nextStatus === "user") {
+        void loadConversations();
+      }
     });
 
     return () => {
@@ -119,6 +161,116 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadConversations() {
+    setIsLoadingConversations(true);
+
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to load conversations.");
+      }
+
+      const data = (await response.json()) as {
+        conversations?: SavedConversation[];
+      };
+
+      const currentFigureConversations = (data.conversations ?? []).filter(
+        (conversation) => conversation.figure_slug === figure.slug
+      );
+
+      setSavedConversations(currentFigureConversations);
+    } catch (error) {
+      console.error("Load conversations error:", error);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  }
+
+  async function createConversation(firstMessage: string) {
+    const response = await fetch("/api/conversations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        figureSlug: figure.slug,
+        firstMessage,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create conversation.");
+    }
+
+    const data = (await response.json()) as {
+      conversation?: SavedConversation;
+    };
+
+    if (!data.conversation?.id) {
+      throw new Error("Conversation was not returned.");
+    }
+
+    setActiveConversationId(data.conversation.id);
+
+    setSavedConversations((current) => {
+      const withoutDuplicate = current.filter(
+        (conversation) => conversation.id !== data.conversation?.id
+      );
+
+      return [data.conversation!, ...withoutDuplicate];
+    });
+
+    return data.conversation.id;
+  }
+
+  async function openConversation(conversationId: string) {
+    if (isLoading || isOpeningConversation) return;
+
+    stopGeneration();
+    setIsOpeningConversation(true);
+    setLimitNotice(null);
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to load messages.");
+      }
+
+      const data = (await response.json()) as {
+        messages?: SavedMessage[];
+      };
+
+      const loadedMessages: Message[] = (data.messages ?? []).map(
+        (message, index) => ({
+          id: Date.now() + index,
+          role: message.role,
+          text: message.content,
+        })
+      );
+
+      setActiveConversationId(conversationId);
+      setInput("");
+      setMessages(
+        loadedMessages.length > 0
+          ? [initialAssistantMessage, ...loadedMessages]
+          : [initialAssistantMessage]
+      );
+    } catch (error) {
+      console.error("Open conversation error:", error);
+    } finally {
+      setIsOpeningConversation(false);
+    }
+  }
 
   function clearSlowThinkingTimer() {
     if (slowThinkingTimerRef.current) {
@@ -146,6 +298,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     stopGeneration();
     setInput("");
     setLimitNotice(null);
+    setActiveConversationId(null);
     setMessages([initialAssistantMessage]);
   }
 
@@ -238,6 +391,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
     if (!finalMessage) return;
     if (isLoading) return;
+    if (authStatus === "loading") return;
 
     if (authStatus === "guest") {
       const currentGuestUsage = getGuestUsageCount();
@@ -288,6 +442,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }, 8000);
 
     try {
+      let conversationIdForRequest = activeConversationId;
+
+      if (authStatus === "user" && !conversationIdForRequest) {
+        conversationIdForRequest = await createConversation(finalMessage);
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -297,6 +457,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         signal: controller.signal,
         body: JSON.stringify({
           slug: figure.slug,
+          conversationId: conversationIdForRequest,
           messages: updatedMessages.map((message) => ({
             role: message.role,
             text: message.text,
@@ -358,6 +519,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         clearSlowThinkingTimer();
         setTypingMessageId(null);
         setIsLoading(false);
+        void loadConversations();
       }
     } catch (error) {
       const isAbortError =
@@ -519,14 +681,61 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           <div className="space-y-2">
             <button
               type="button"
-              className="w-full rounded-xl bg-[#f4efe6]/6 px-3 py-3 text-left text-sm leading-5 text-[#d9d0c5]"
+              onClick={startNewChat}
+              className={`w-full rounded-xl px-3 py-3 text-left text-sm leading-5 transition ${
+                activeConversationId === null
+                  ? "bg-[#f4efe6]/8 text-[#f4efe6]"
+                  : "bg-[#f4efe6]/4 text-[#b8aea3] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
+              }`}
             >
               მიმდინარე საუბარი
             </button>
 
-            <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
-              შენახული საუბრები აქ გამოჩნდება შემდეგ ეტაპზე.
-            </div>
+            {authStatus === "loading" && (
+              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
+                იტვირთება...
+              </div>
+            )}
+
+            {authStatus === "guest" && (
+              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
+                შესვლის შემდეგ საუბრები აქ შეინახება.
+              </div>
+            )}
+
+            {authStatus === "user" && isLoadingConversations && (
+              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
+                საუბრები იტვირთება...
+              </div>
+            )}
+
+            {authStatus === "user" &&
+              !isLoadingConversations &&
+              savedConversations.length === 0 && (
+                <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-4 text-xs leading-5 text-[#756b63]">
+                  ჯერ შენახული საუბარი არ გაქვს.
+                </div>
+              )}
+
+            {savedConversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                type="button"
+                onClick={() => void openConversation(conversation.id)}
+                className={`w-full rounded-xl px-3 py-3 text-left transition ${
+                  activeConversationId === conversation.id
+                    ? "bg-[#c9a45c]/15 text-[#f4efe6]"
+                    : "bg-[#f4efe6]/4 text-[#d9d0c5] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
+                }`}
+              >
+                <span className="line-clamp-2 block text-sm leading-5">
+                  {conversation.title}
+                </span>
+                <span className="mt-1 block text-[11px] text-[#756b63]">
+                  {formatSavedConversationDate(conversation.updated_at)}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       </aside>
@@ -650,7 +859,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   key={question}
                   type="button"
                   onClick={() => void sendMessage(question)}
-                  disabled={isLoading}
+                  disabled={isLoading || isOpeningConversation}
                   className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3.5 py-2 text-left text-xs font-semibold leading-5 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {question}
@@ -666,15 +875,19 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                 placeholder={
                   isLoading
                     ? "პასუხის გაჩერება შეგიძლია..."
-                    : "დაწერე კითხვა..."
+                    : isOpeningConversation
+                      ? "საუბარი იტვირთება..."
+                      : "დაწერე კითხვა..."
                 }
-                className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40"
+                disabled={isOpeningConversation}
+                className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60"
               />
 
               <button
                 type="button"
                 onClick={handleSendClick}
-                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition ${
+                disabled={authStatus === "loading" || isOpeningConversation}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isLoading
                     ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
                     : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"
