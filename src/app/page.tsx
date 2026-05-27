@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 function getFigureImagePosition(slug: string) {
   const positions: Record<string, string> = {
     "ilia-chavchavadze": "center 22%",
-    "vazha-pshavela": "center 20%",
+    "vazha-pshavela": "center 8%",
     "shota-rustaveli": "center 30%",
     "tamar-mepe": "center 28%",
     "niko-pirosmani": "center 30%",
