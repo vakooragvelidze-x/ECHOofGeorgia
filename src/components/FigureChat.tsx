@@ -123,6 +123,9 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   >(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isOpeningConversation, setIsOpeningConversation] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<SavedConversation | null>(
+    null
+  );
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -301,30 +304,42 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
   }
 
-  async function deleteConversation(conversationId: string) {
+  async function deleteConversationById(
+    conversationId: string,
+    shouldResetActive = true
+  ) {
+    const response = await fetch(`/api/conversations/${conversationId}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete conversation.");
+    }
+
+    setSavedConversations((current) =>
+      current.filter((conversation) => conversation.id !== conversationId)
+    );
+
+    if (shouldResetActive && activeConversationId === conversationId) {
+      startNewChat();
+    }
+  }
+
+  function requestDeleteConversation(conversation: SavedConversation) {
     if (isLoading || isOpeningConversation) return;
+    setDeleteTarget(conversation);
+  }
 
-    const shouldDelete = window.confirm("ნამდვილად გინდა ამ ჩატის წაშლა?");
+  async function confirmDeleteConversation() {
+    if (!deleteTarget) return;
 
-    if (!shouldDelete) return;
+    const conversationId = deleteTarget.id;
+
+    setDeleteTarget(null);
 
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: "DELETE",
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete conversation.");
-      }
-
-      setSavedConversations((current) =>
-        current.filter((conversation) => conversation.id !== conversationId)
-      );
-
-      if (activeConversationId === conversationId) {
-        startNewChat();
-      }
+      await deleteConversationById(conversationId);
     } catch (error) {
       console.error("Delete conversation error:", error);
     }
@@ -500,11 +515,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       }
     }, 8000);
 
+    let createdConversationIdInRequest: string | null = null;
+
     try {
       let conversationIdForRequest = activeConversationId;
 
       if (authStatus === "user" && !conversationIdForRequest) {
         conversationIdForRequest = await createConversation(finalMessage);
+        createdConversationIdInRequest = conversationIdForRequest;
       }
 
       const response = await fetch("/api/chat", {
@@ -525,6 +543,16 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       });
 
       if (!response.ok) {
+        if (createdConversationIdInRequest) {
+          try {
+            await deleteConversationById(createdConversationIdInRequest, false);
+          } catch (deleteError) {
+            console.error("Cleanup empty conversation error:", deleteError);
+          }
+
+          setActiveConversationId(null);
+        }
+
         await handleErrorResponse(response, assistantId, requestId);
         return;
       }
@@ -573,6 +601,19 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       reader.releaseLock();
 
       if (activeRequestIdRef.current === requestId) {
+        if (
+          createdConversationIdInRequest &&
+          streamedText.trim().length === 0
+        ) {
+          try {
+            await deleteConversationById(createdConversationIdInRequest, false);
+          } catch (deleteError) {
+            console.error("Cleanup empty conversation error:", deleteError);
+          }
+
+          setActiveConversationId(null);
+        }
+
         activeRequestIdRef.current = null;
         abortControllerRef.current = null;
         clearSlowThinkingTimer();
@@ -597,6 +638,16 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       }
 
       console.error("Chat request error:", error);
+
+      if (createdConversationIdInRequest) {
+        try {
+          await deleteConversationById(createdConversationIdInRequest, false);
+        } catch (deleteError) {
+          console.error("Cleanup failed conversation error:", deleteError);
+        }
+
+        setActiveConversationId(null);
+      }
 
       updateStreamingAssistantMessage(
         assistantId,
@@ -688,10 +739,15 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-3 backdrop-blur-xl lg:flex">
         <button
           type="button"
-          onClick={startNewChat}
+          onClick={() => {
+            if (activeConversationId !== null) {
+              startNewChat();
+            }
+          }}
+          disabled={activeConversationId === null}
           className={`mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition ${
             activeConversationId === null
-              ? "border-[#c9a45c]/30 bg-[#c9a45c]/15 text-[#f4efe6]"
+              ? "border-[#c9a45c]/30 bg-[#c9a45c]/15 text-[#f4efe6] disabled:cursor-default"
               : "border-[#f4efe6]/10 bg-[#f4efe6]/5 text-[#f4efe6] hover:bg-[#f4efe6]/10"
           }`}
         >
@@ -800,7 +856,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   <button
                     type="button"
                     title="ჩატის წაშლა"
-                    onClick={() => void deleteConversation(conversation.id)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      requestDeleteConversation(conversation);
+                    }}
                     className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#756b63] opacity-0 transition hover:bg-red-500/12 hover:text-red-200 group-hover:opacity-100"
                   >
                     <Trash2 size={13} />
@@ -976,6 +1036,41 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           </div>
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 px-5 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.6rem] border border-[#f4efe6]/10 bg-[#171010] p-5 shadow-2xl">
+            <p className="text-lg font-black text-[#f4efe6]">ჩატის წაშლა?</p>
+
+            <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
+              ეს ჩატი და მისი შეტყობინებები წაიშლება. ამ მოქმედების დაბრუნება
+              ვერ მოხერხდება.
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-sm text-[#d9d0c5]">
+              <span className="line-clamp-2">{deleteTarget.title}</span>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 rounded-full border border-[#f4efe6]/10 px-4 py-3 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/6"
+              >
+                გაუქმება
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void confirmDeleteConversation()}
+                className="flex-1 rounded-full bg-[#8b2635] px-4 py-3 text-sm font-black text-[#f4efe6] transition hover:bg-[#a63243]"
+              >
+                წაშლა
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

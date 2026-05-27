@@ -71,6 +71,8 @@ export const figures: Figure[] = [
     ],
   },
   {
+    image: "/figures/shota-rustaveli.jpg",
+  iconImage: "/figures/icons/shota-icon.jpg",
     slug: "shota-rustaveli",
     nameKa: "შოთა რუსთაველი",
     nameEn: "Shota Rustaveli",
@@ -95,6 +97,8 @@ export const figures: Figure[] = [
     ],
   },
   {
+    image: "/figures/tamar-mepe.jpg",
+  iconImage: "/figures/icons/tamar-icon.jpg",
     slug: "tamar-mepe",
     nameKa: "თამარ მეფე",
     nameEn: "Tamar Mepe",
@@ -127,6 +131,8 @@ export const figures: Figure[] = [
     ],
   },
   {
+    image: "/figures/niko-pirosmani.jpg",
+  iconImage: "/figures/icons/niko-icon.jpg",
     slug: "niko-pirosmani",
     nameKa: "ნიკო ფიროსმანი",
     nameEn: "Niko Pirosmani",
