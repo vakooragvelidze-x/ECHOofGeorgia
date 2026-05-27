@@ -1,7 +1,7 @@
 "use client";
 
 import type { Figure } from "@/data/figures";
-import { Bot, Loader2, Send, Sparkles, Square, UserRound } from "lucide-react";
+import { Bot, MessageCircle, Send, Square, UserRound } from "lucide-react";
 import Image from "next/image";
 import {
   KeyboardEvent,
@@ -184,8 +184,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       if (activeRequestIdRef.current === requestId) {
         setSlowThinkingText(
           figure.slug === "vazha-pshavela"
-            ? "ეს კითხვა ღრმაა... ცოტა დრო დამჭირდება, რომ კარგად დავფიქრდე."
-            : "ეს საინტერესო კითხვაა... ცოტა დრო დამჭირდება, რომ სწორად გიპასუხო."
+            ? "ღრმად ვფიქრობ"
+            : "პასუხს ვალაგებ"
         );
       }
     }, 8000);
@@ -223,7 +223,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       let receivedFirstChunk = false;
 
       while (true) {
-        if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
+        if (
+          activeRequestIdRef.current !== requestId ||
+          controller.signal.aborted
+        ) {
           break;
         }
 
@@ -307,38 +310,38 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       }
     }
   }
-  function ThinkingIndicator({ text = "ვფიქრობ" }: { text?: string }) {
-  return (
-    <div className="inline-flex items-center gap-3">
-      <span>{text}</span>
 
-      <span className="inline-flex items-center gap-1">
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]" />
-        <span
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]"
-          style={{ animationDelay: "120ms" }}
-        />
-        <span
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]"
-          style={{ animationDelay: "240ms" }}
-        />
-      </span>
-    </div>
-  );
-} 
+  function ThinkingIndicator({ text = "ვფიქრობ" }: { text?: string }) {
+    return (
+      <div className="inline-flex items-center gap-3">
+        <span>{text}</span>
+
+        <span className="inline-flex items-center gap-1">
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]" />
+          <span
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]"
+            style={{ animationDelay: "120ms" }}
+          />
+          <span
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c9a45c]"
+            style={{ animationDelay: "240ms" }}
+          />
+        </span>
+      </div>
+    );
+  }
 
   function AssistantAvatar() {
-    
     const avatarImage = figure.iconImage ?? figure.image;
 
     if (avatarImage) {
       return (
-        <div className="relative mt-1 h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
+        <div className="relative mt-1 h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#c9a45c]/30 bg-[#171010]">
           <Image
             src={avatarImage}
             alt={figure.nameKa}
             fill
-            sizes="36px"
+            sizes="40px"
             className="object-cover grayscale sepia-[0.22] contrast-110"
           />
         </div>
@@ -346,47 +349,58 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
 
     return (
-      <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
+      <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#c9a45c]/30 bg-[#c9a45c]/10 text-[#c9a45c]">
         <Bot size={17} />
       </div>
     );
   }
 
   return (
-    <section className="relative z-10 mx-auto grid max-w-7xl gap-6 pb-24 lg:grid-cols-[0.8fr_1.2fr]">
-      <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-7">
-        <div className="mb-5 flex items-center gap-3">
-          <Sparkles className="text-[#c9a45c]" size={22} />
-          <h2 className="text-2xl font-black">კითხვები</h2>
-        </div>
+    <section className="relative z-10 mx-auto max-w-7xl pb-8">
+      <div className="rounded-[2.2rem] border border-[#f4efe6]/10 bg-[#171010]/82 p-4 shadow-2xl backdrop-blur-xl sm:p-6">
+        <div className="mb-5 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4">
+            <AssistantAvatar />
 
-        <div className="space-y-3">
-          {figure.questions.map((question) => (
-            <button
-              key={question}
-              type="button"
-              onClick={() => void sendMessage(question)}
-              disabled={isLoading}
-              className="w-full rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-4 text-left text-sm leading-6 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {question}
-            </button>
-          ))}
-        </div>
-      </div>
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a]">
+                <MessageCircle size={14} />
+                საუბრის ოთახი
+              </div>
 
-      <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010] p-4 sm:p-7">
-        <div className="mb-5">
-          <h2 className="text-3xl font-black">საუბარი</h2>
+              <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+                {figure.nameKa}
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#b8aea3]">
+                დასვი კითხვა მის ცხოვრებაზე, იდეებზე, ეპოქაზე ან დღევანდელ
+                საკითხებზე.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex max-w-2xl flex-wrap gap-2">
+            {figure.questions.map((question) => (
+              <button
+                key={question}
+                type="button"
+                onClick={() => void sendMessage(question)}
+                disabled={isLoading}
+                className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-2.5 text-left text-xs font-semibold leading-5 text-[#d9d0c5] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="relative">
           <div
             ref={chatRef}
             onScroll={updateScrollThumb}
-            className="chat-scroll-area h-[520px] overflow-y-auto rounded-[1.5rem] border border-[#f4efe6]/10 bg-[#0e0b0b] p-4 pr-8"
+            className="chat-scroll-area h-[58vh] min-h-[460px] overflow-y-auto rounded-[1.6rem] border border-[#f4efe6]/10 bg-[#090707] p-4 pr-8 sm:p-5 sm:pr-9"
           >
-            <div className="space-y-4">
+            <div className="space-y-5">
               {messages.map((message) => {
                 const isUser = message.role === "user";
                 const isTyping = typingMessageId === message.id;
@@ -401,43 +415,33 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                     {!isUser && <AssistantAvatar />}
 
                     <div
-                      className={`max-w-[86%] whitespace-pre-line rounded-3xl p-5 text-sm leading-7 ${
+                      className={`max-w-[84%] whitespace-pre-line rounded-3xl p-5 text-sm leading-7 sm:text-base sm:leading-8 ${
                         isUser
-                          ? "rounded-tr-md bg-[#c9a45c] font-semibold text-[#140d0d]"
+                          ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
                           : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                       }`}
                     >
                       {message.text ? (
-  message.text
-) : isTyping ? (
-  <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
-) : (
-  ""
-)}
+                        message.text
+                      ) : isTyping ? (
+                        <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
+                      ) : (
+                        ""
+                      )}
 
-                      {isTyping && (
+                      {isTyping && message.text && (
                         <span className="typing-cursor ml-1 inline-block h-4 w-[2px] translate-y-[2px] bg-[#c9a45c]" />
                       )}
                     </div>
 
                     {isUser && (
-                      <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f4efe6] text-[#140d0d]">
+                      <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4efe6] text-[#140d0d]">
                         <UserRound size={17} />
                       </div>
                     )}
                   </div>
                 );
               })}
-
-              {isLoading && !typingMessageId && (
-                <div className="flex justify-start gap-3">
-                  <AssistantAvatar />
-
-                  <div className="inline-flex items-center gap-3 rounded-3xl rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 p-5 text-sm leading-7 text-[#d9d0c5]">
-                    <ThinkingIndicator text={slowThinkingText ?? "ვფიქრობ"} />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 

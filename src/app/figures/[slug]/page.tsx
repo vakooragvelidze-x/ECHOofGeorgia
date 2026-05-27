@@ -1,6 +1,6 @@
 import FigureChat from "@/components/FigureChat";
 import { figures, getFigureBySlug } from "@/data/figures";
-import { ArrowLeft, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -58,7 +58,7 @@ export default async function FigurePage({
   return (
     <main className="min-h-screen overflow-hidden bg-[#0e0b0b] text-[#f4efe6]">
       <section className="relative px-5 py-6 sm:px-8 lg:px-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,164,92,0.14),transparent_32%),radial-gradient(circle_at_82%_14%,rgba(92,30,38,0.4),transparent_36%),linear-gradient(180deg,#130d0d_0%,#0e0b0b_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,164,92,0.12),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(92,30,38,0.36),transparent_36%),linear-gradient(180deg,#130d0d_0%,#0e0b0b_76%)]" />
         <div className="absolute inset-0 opacity-[0.07] grain" />
 
         <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between rounded-full border border-[#f4efe6]/10 bg-[#120d0d]/70 px-5 py-4 backdrop-blur-xl">
@@ -71,20 +71,22 @@ export default async function FigurePage({
           </Link>
 
           <div className="hidden text-sm text-[#b8aea3] sm:block">
-            ECHO Georgia · Conversation Room
+            ECHO Georgia · Conversation
           </div>
         </nav>
 
-        <div className="relative z-10 mx-auto max-w-7xl py-10 lg:py-12">
-          <div className="overflow-hidden rounded-[2.2rem] border border-[#f4efe6]/10 bg-[#171010]/78 p-4 shadow-2xl backdrop-blur-xl">
-            <div className="grid gap-6 rounded-[1.8rem] border border-[#c9a45c]/16 bg-[linear-gradient(145deg,#211313,#0f0b0b)] p-5 sm:p-6 lg:grid-cols-[190px_minmax(0,1fr)_auto] lg:items-center">
+        <div className="relative z-10 mx-auto max-w-7xl py-10">
+          <FigureChat figure={figure} />
+
+          <section className="mt-8 rounded-[2.2rem] border border-[#f4efe6]/10 bg-[#171010]/82 p-4 shadow-2xl backdrop-blur-xl sm:p-6">
+            <div className="grid gap-7 rounded-[1.8rem] border border-[#c9a45c]/16 bg-[linear-gradient(145deg,#211313,#0f0b0b)] p-5 sm:p-7 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
               {figure.image ? (
-                <div className="relative h-[230px] overflow-hidden rounded-[1.5rem] border border-[#c9a45c]/25 bg-[#171010] shadow-[0_22px_60px_rgba(0,0,0,0.35)] sm:h-[260px] lg:h-[220px]">
+                <div className="relative h-[320px] overflow-hidden rounded-[1.5rem] border border-[#c9a45c]/25 bg-[#171010] shadow-[0_22px_60px_rgba(0,0,0,0.35)]">
                   <Image
                     src={figure.image}
                     alt={figure.nameKa}
                     fill
-                    sizes="220px"
+                    sizes="280px"
                     style={{
                       objectPosition: getFigureImagePosition(figure.slug),
                     }}
@@ -95,18 +97,18 @@ export default async function FigurePage({
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(14,11,11,0.02)_0%,rgba(14,11,11,0.08)_48%,rgba(14,11,11,0.74)_100%)]" />
                 </div>
               ) : (
-                <div className="grid h-[230px] place-items-center rounded-[1.5rem] border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-5xl font-black text-[#c9a45c] sm:h-[260px] lg:h-[220px]">
+                <div className="grid h-[320px] place-items-center rounded-[1.5rem] border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-5xl font-black text-[#c9a45c]">
                   {figure.nameKa.slice(0, 1)}
                 </div>
               )}
 
-              <div>
+              <div className="py-1">
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-4 py-2 text-sm text-[#d8c08a]">
                   <Sparkles size={16} />
                   {figure.era}
                 </div>
 
-                <h1 className="text-[clamp(2.8rem,6vw,5.8rem)] font-black leading-[0.92] tracking-[-0.07em]">
+                <h1 className="text-[clamp(2.6rem,5vw,5.2rem)] font-black leading-[0.94] tracking-[-0.065em]">
                   {figure.nameKa}
                 </h1>
 
@@ -114,15 +116,19 @@ export default async function FigurePage({
                   {figure.nameEn} · {figure.years}
                 </p>
 
-                <p className="mt-3 text-lg font-black leading-7 text-[#f4efe6]">
+                <p className="mt-3 max-w-3xl text-xl font-black leading-8 text-[#f4efe6]">
                   {figure.role}
                 </p>
 
-                <p className="mt-4 max-w-3xl text-base leading-8 text-[#b8aea3]">
+                <p className="mt-6 max-w-4xl text-base leading-8 text-[#b8aea3] sm:text-lg sm:leading-9">
                   {figure.description}
                 </p>
 
-                <div className="mt-6 flex flex-wrap gap-2">
+                <p className="mt-5 max-w-4xl text-base leading-8 text-[#9f958c]">
+                  {figure.longDescription}
+                </p>
+
+                <div className="mt-7 flex flex-wrap gap-2">
                   {figure.principles.map((item) => (
                     <span
                       key={item}
@@ -133,26 +139,9 @@ export default async function FigurePage({
                   ))}
                 </div>
               </div>
-
-              <div className="hidden min-w-[180px] rounded-[1.4rem] border border-[#f4efe6]/10 bg-[#0e0b0b]/65 p-5 lg:block">
-                <div className="mb-4 grid h-11 w-11 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#c9a45c]">
-                  <MessageCircle size={20} />
-                </div>
-
-                <p className="text-sm font-black text-[#f4efe6]">
-                  დაიწყე საუბარი
-                </p>
-
-                <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
-                  დასვი კითხვა ცხოვრებაზე, იდეებზე, ეპოქაზე ან დღევანდელ
-                  საკითხებზე.
-                </p>
-              </div>
             </div>
-          </div>
+          </section>
         </div>
-
-        <FigureChat figure={figure} />
       </section>
     </main>
   );
