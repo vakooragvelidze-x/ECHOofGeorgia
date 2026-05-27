@@ -9,6 +9,7 @@ import {
   Plus,
   Send,
   Square,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
@@ -142,79 +143,79 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
 
   useEffect(() => {
-  const supabase = createClient();
+    const supabase = createClient();
 
-  setGuestUsageCountState(getGuestUsageCount());
+    setGuestUsageCountState(getGuestUsageCount());
 
-  supabase.auth
-    .getUser()
-    .then(async ({ data, error }) => {
-      if (error || !data.user) {
+    supabase.auth
+      .getUser()
+      .then(async ({ data, error }) => {
+        if (error || !data.user) {
+          await supabase.auth.signOut();
+          setAuthStatus("guest");
+          setSavedConversations([]);
+          setActiveConversationId(null);
+          return;
+        }
+
+        setAuthStatus("user");
+        void loadConversations();
+      })
+      .catch(async () => {
         await supabase.auth.signOut();
+        setAuthStatus("guest");
+        setSavedConversations([]);
+        setActiveConversationId(null);
+      });
+
+    return () => {
+      stopGeneration();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadConversations() {
+    setIsLoadingConversations(true);
+
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (response.status === 401) {
+        const supabase = createClient();
+
+        await supabase.auth.signOut();
+
         setAuthStatus("guest");
         setSavedConversations([]);
         setActiveConversationId(null);
         return;
       }
 
-      setAuthStatus("user");
-      void loadConversations();
-    })
-    .catch(async () => {
-      await supabase.auth.signOut();
-      setAuthStatus("guest");
+      if (!response.ok) {
+        console.warn("Failed to load conversations:", response.status);
+        setSavedConversations([]);
+        return;
+      }
+
+      const data = (await response.json()) as {
+        conversations?: SavedConversation[];
+      };
+
+      const currentFigureConversations = (data.conversations ?? []).filter(
+        (conversation) => conversation.figure_slug === figure.slug
+      );
+
+      setSavedConversations(currentFigureConversations);
+    } catch (error) {
+      console.warn("Load conversations warning:", error);
       setSavedConversations([]);
-      setActiveConversationId(null);
-    });
-
-  return () => {
-    stopGeneration();
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-
-  async function loadConversations() {
-  setIsLoadingConversations(true);
-
-  try {
-    const response = await fetch("/api/conversations", {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    if (response.status === 401) {
-      const supabase = createClient();
-
-      await supabase.auth.signOut();
-
-      setAuthStatus("guest");
-      setSavedConversations([]);
-      setActiveConversationId(null);
-      return;
+    } finally {
+      setIsLoadingConversations(false);
     }
-
-    if (!response.ok) {
-      console.warn("Failed to load conversations:", response.status);
-      setSavedConversations([]);
-      return;
-    }
-
-    const data = (await response.json()) as {
-      conversations?: SavedConversation[];
-    };
-
-    const currentFigureConversations = (data.conversations ?? []).filter(
-      (conversation) => conversation.figure_slug === figure.slug
-    );
-
-    setSavedConversations(currentFigureConversations);
-  } catch (error) {
-    console.warn("Load conversations warning:", error);
-    setSavedConversations([]);
-  } finally {
-    setIsLoadingConversations(false);
   }
-}
 
   async function createConversation(firstMessage: string) {
     const response = await fetch("/api/conversations", {
@@ -297,6 +298,35 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       console.error("Open conversation error:", error);
     } finally {
       setIsOpeningConversation(false);
+    }
+  }
+
+  async function deleteConversation(conversationId: string) {
+    if (isLoading || isOpeningConversation) return;
+
+    const shouldDelete = window.confirm("ნამდვილად გინდა ამ ჩატის წაშლა?");
+
+    if (!shouldDelete) return;
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete conversation.");
+      }
+
+      setSavedConversations((current) =>
+        current.filter((conversation) => conversation.id !== conversationId)
+      );
+
+      if (activeConversationId === conversationId) {
+        startNewChat();
+      }
+    } catch (error) {
+      console.error("Delete conversation error:", error);
     }
   }
 
@@ -740,27 +770,44 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                 </div>
               )}
 
-            {savedConversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                type="button"
-                title={conversation.title}
-                onClick={() => void openConversation(conversation.id)}
-                className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition ${
-                  activeConversationId === conversation.id
-                    ? "bg-[#c9a45c]/16 text-[#f4efe6] ring-1 ring-[#c9a45c]/20"
-                    : "bg-[#f4efe6]/4 text-[#b8aea3] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
-                }`}
-              >
-                <span className="min-w-0 flex-1 truncate text-xs font-bold leading-5">
-                  {conversation.title}
-                </span>
+            {savedConversations.map((conversation) => {
+              const isActive = activeConversationId === conversation.id;
 
-                <span className="shrink-0 text-[10px] text-[#756b63]">
-                  {formatSavedConversationDate(conversation.updated_at)}
-                </span>
-              </button>
-            ))}
+              return (
+                <div
+                  key={conversation.id}
+                  className={`group flex w-full items-center gap-1 rounded-xl transition ${
+                    isActive
+                      ? "bg-[#c9a45c]/16 text-[#f4efe6] ring-1 ring-[#c9a45c]/20"
+                      : "bg-[#f4efe6]/4 text-[#b8aea3] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    title={conversation.title}
+                    onClick={() => void openConversation(conversation.id)}
+                    className="min-w-0 flex-1 px-3 py-2.5 text-left"
+                  >
+                    <span className="block truncate text-xs font-bold leading-5">
+                      {conversation.title}
+                    </span>
+                  </button>
+
+                  <span className="hidden shrink-0 pr-1 text-[10px] text-[#756b63] group-hover:hidden xl:block">
+                    {formatSavedConversationDate(conversation.updated_at)}
+                  </span>
+
+                  <button
+                    type="button"
+                    title="ჩატის წაშლა"
+                    onClick={() => void deleteConversation(conversation.id)}
+                    className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#756b63] opacity-0 transition hover:bg-red-500/12 hover:text-red-200 group-hover:opacity-100"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </aside>
@@ -791,7 +838,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           ref={chatRef}
           className="chat-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7"
         >
-       <div className="mx-auto max-w-3xl space-y-4">            {messages.map((message) => {
+          <div className="mx-auto max-w-3xl space-y-4">
+            {messages.map((message) => {
               const isUser = message.role === "user";
               const isTyping = typingMessageId === message.id;
 
@@ -805,7 +853,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   {!isUser && <AssistantAvatar />}
 
                   <div
-className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leading-6 sm:text-sm sm:leading-7 ${                      isUser
+                    className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leading-6 sm:text-sm sm:leading-7 ${
+                      isUser
                         ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
                         : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                     }`}
@@ -834,7 +883,8 @@ className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leadin
           </div>
         </div>
 
-<div className="shrink-0 border-t border-[#f4efe6]/8 px-5 py-3 sm:px-7">          <div className="mx-auto max-w-3xl">
+        <div className="shrink-0 border-t border-[#f4efe6]/8 px-5 py-3 sm:px-7">
+          <div className="mx-auto max-w-3xl">
             {limitNotice && (
               <div className="mb-4 rounded-2xl border border-[#c9a45c]/25 bg-[#c9a45c]/10 p-4">
                 <p className="text-sm font-black text-[#f4efe6]">
@@ -876,14 +926,14 @@ className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leadin
             )}
 
             {shouldShowSuggestedQuestions && (
-              <div className="mb-2 flex max-h-16 flex-wrap gap-1.5 overflow-hidden">
+              <div className="mb-2 flex max-h-12 flex-wrap gap-1.5 overflow-hidden">
                 {figure.questions.map((question) => (
                   <button
                     key={question}
                     type="button"
                     onClick={() => void sendMessage(question)}
                     disabled={isLoading || isOpeningConversation}
-                    className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/4 px-3 py-1.5 text-left text-[11px] font-semibold leading-4 text-[#b8aea3] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/4 px-2.5 py-1 text-left text-[10px] font-semibold leading-4 text-[#b8aea3] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {question}
                   </button>
@@ -904,13 +954,15 @@ className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leadin
                       : "დაწერე კითხვა..."
                 }
                 disabled={isOpeningConversation}
-className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"              />
+                className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+              />
 
               <button
                 type="button"
                 onClick={handleSendClick}
                 disabled={authStatus === "loading" || isOpeningConversation}
-className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm ${                  isLoading
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm ${
+                  isLoading
                     ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
                     : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"
                 }`}
