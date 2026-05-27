@@ -5,12 +5,13 @@ export function proxy(request: NextRequest) {
 
   const isAccessPage = pathname === "/access";
   const isAccessApi = pathname.startsWith("/api/access");
+  const isAuthApi = pathname.startsWith("/api/auth");
   const isStaticAsset =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.includes(".");
 
-  if (isAccessApi || isStaticAsset) {
+  if (isAccessApi || isAuthApi || isStaticAsset) {
     return NextResponse.next();
   }
 
@@ -29,10 +30,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json(
-      { error: "Access required." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Access required." }, { status: 401 });
   }
 
   return NextResponse.redirect(new URL("/access", request.url));
