@@ -765,8 +765,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           ref={chatRef}
           className="chat-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7"
         >
-          <div className="mx-auto max-w-3xl space-y-6">
-            {messages.map((message) => {
+       <div className="mx-auto max-w-3xl space-y-4">            {messages.map((message) => {
               const isUser = message.role === "user";
               const isTyping = typingMessageId === message.id;
 
@@ -780,8 +779,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   {!isUser && <AssistantAvatar />}
 
                   <div
-                    className={`max-w-[82%] whitespace-pre-line rounded-3xl px-5 py-4 text-sm leading-7 sm:text-base sm:leading-8 ${
-                      isUser
+className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leading-6 sm:text-sm sm:leading-7 ${                      isUser
                         ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
                         : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                     }`}
@@ -810,8 +808,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-[#f4efe6]/8 px-5 py-4 sm:px-7">
-          <div className="mx-auto max-w-3xl">
+<div className="shrink-0 border-t border-[#f4efe6]/8 px-5 py-3 sm:px-7">          <div className="mx-auto max-w-3xl">
             {limitNotice && (
               <div className="mb-4 rounded-2xl border border-[#c9a45c]/25 bg-[#c9a45c]/10 p-4">
                 <p className="text-sm font-black text-[#f4efe6]">
@@ -881,15 +878,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                       : "დაწერე კითხვა..."
                 }
                 disabled={isOpeningConversation}
-                className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-5 py-4 text-sm text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60"
-              />
+className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"              />
 
               <button
                 type="button"
                 onClick={handleSendClick}
                 disabled={authStatus === "loading" || isOpeningConversation}
-                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isLoading
+className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm ${                  isLoading
                     ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
                     : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"
                 }`}
