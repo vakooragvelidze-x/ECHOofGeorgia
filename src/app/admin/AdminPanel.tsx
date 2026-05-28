@@ -17,6 +17,9 @@ type AdminUser = {
   full_name: string | null;
   role: "user" | "admin";
   plan: "free" | "premium" | "unlimited";
+  usage_today: number;
+  usage_total: number;
+  last_activity_at: string | null;
 };
 
 type Plan = AdminUser["plan"];
@@ -32,6 +35,22 @@ const planStyles: Record<Plan, string> = {
   premium: "border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#d8c08a]",
   unlimited: "border-emerald-400/25 bg-emerald-500/10 text-emerald-200",
 };
+function formatActivityDate(value: string | null) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleString("ka-GE", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -115,6 +134,11 @@ export default function AdminPage() {
   const premiumUsers = users.filter((user) => user.plan === "premium").length;
   const freeUsers = users.filter((user) => user.plan === "free").length;
 
+  const totalQuestionsToday = users.reduce(
+  (sum, user) => sum + user.usage_today,
+  0
+);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0e0b0b] px-5 py-8 text-[#f4efe6]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(201,164,92,0.12),transparent_30%),radial-gradient(circle_at_80%_18%,rgba(92,30,38,0.38),transparent_34%),linear-gradient(180deg,#140d0d_0%,#0e0b0b_72%)]" />
@@ -161,10 +185,10 @@ export default function AdminPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatCard label="Total" value={totalUsers} />
-              <StatCard label="Free" value={freeUsers} />
-              <StatCard label="Premium" value={premiumUsers} />
-              <StatCard label="Unlimited" value={unlimitedUsers} />
+              <StatCard label="Users" value={totalUsers} />
+<StatCard label="Today" value={totalQuestionsToday} />
+<StatCard label="Free" value={freeUsers} />
+<StatCard label="Unlimited" value={unlimitedUsers} />
             </div>
           </div>
 
@@ -175,12 +199,14 @@ export default function AdminPage() {
           )}
 
           <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-[#f4efe6]/10">
-            <div className="hidden grid-cols-[1.5fr_1fr_120px_310px] gap-4 border-b border-[#f4efe6]/10 bg-[#0e0b0b]/80 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-[#756b63] lg:grid">
-              <div>მომხმარებელი</div>
-              <div>სახელი</div>
-              <div>როლი</div>
-              <div>გეგმა</div>
-            </div>
+            <div className="hidden grid-cols-[1.5fr_1fr_90px_110px_120px_310px] gap-4 border-b border-[#f4efe6]/10 bg-[#0e0b0b]/80 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-[#756b63] lg:grid">
+  <div>მომხმარებელი</div>
+  <div>სახელი</div>
+  <div>Today</div>
+  <div>Total</div>
+  <div>როლი</div>
+  <div>გეგმა</div>
+</div>
 
             {isLoading ? (
               <div className="px-5 py-12 text-center text-sm text-[#b8aea3]">
@@ -195,8 +221,7 @@ export default function AdminPage() {
                 {users.map((user) => (
                   <div
                     key={user.id}
-                    className="grid gap-4 px-5 py-4 lg:grid-cols-[1.5fr_1fr_120px_310px] lg:items-center"
-                  >
+className="grid gap-4 px-5 py-4 lg:grid-cols-[1.5fr_1fr_90px_110px_120px_310px] lg:items-center"                  >
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
                         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#c9a45c]">
@@ -223,6 +248,19 @@ export default function AdminPage() {
                       {user.full_name || "—"}
                     </div>
 
+                    <div className="text-sm font-black text-[#f4efe6]">
+  <span className="lg:hidden text-[#756b63]">Today: </span>
+  {user.usage_today}
+</div>
+
+<div className="text-sm text-[#b8aea3]">
+  <span className="lg:hidden text-[#756b63]">Total: </span>
+  {user.usage_total}
+  <p className="mt-1 text-[11px] text-[#756b63]">
+    {formatActivityDate(user.last_activity_at)}
+  </p>
+</div>
+                   
                     <div>
                       <span
                         className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${
