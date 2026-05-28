@@ -9,6 +9,8 @@ type ChatMessage = {
   text: string;
 };
 
+type UserPlan = "guest" | "free" | "premium" | "unlimited";
+
 const FREE_DAILY_LIMIT = 15;
 
 function formatConversation(messages: ChatMessage[]) {
@@ -32,6 +34,14 @@ function getTodayStartIso() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today.toISOString();
+}
+
+function normalizePlan(value: unknown): UserPlan {
+  if (value === "premium" || value === "unlimited" || value === "free") {
+    return value;
+  }
+
+  return "free";
 }
 
 function extractDeltaFromSseJson(jsonText: string) {
@@ -73,7 +83,7 @@ async function getUserPlanAndUsage() {
   if (!user) {
     return {
       user: null,
-      plan: "guest",
+      plan: "guest" as UserPlan,
       todayUsageCount: 0,
       supabase,
     };
@@ -85,7 +95,7 @@ async function getUserPlanAndUsage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const plan = profile?.plan ?? "free";
+  const plan = normalizePlan(profile?.plan);
 
   const { count } = await supabase
     .from("usage_events")
@@ -151,9 +161,14 @@ export async function POST(request: Request) {
     const { user, plan, todayUsageCount, supabase } =
       await getUserPlanAndUsage();
 
-    const isRegisteredFreeUser = user && plan !== "premium";
+    const isFreeRegisteredUser = Boolean(user && plan === "free");
+    const isUnlimitedUser = Boolean(user && plan === "unlimited");
 
-    if (isRegisteredFreeUser && todayUsageCount >= FREE_DAILY_LIMIT) {
+    if (
+      isFreeRegisteredUser &&
+      !isUnlimitedUser &&
+      todayUsageCount >= FREE_DAILY_LIMIT
+    ) {
       return NextResponse.json(
         {
           code: "FREE_DAILY_LIMIT_REACHED",
