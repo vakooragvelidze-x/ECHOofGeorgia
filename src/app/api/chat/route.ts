@@ -6,7 +6,10 @@ import {
 import { getFigureBySlug } from "@/data/figures";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-
+import {
+  formatRetrievedKnowledgeBlock,
+  retrieveRelevantKnowledge,
+} from "@/lib/retrieveKnowledge";
 type ChatMessage = {
   role: "user" | "assistant";
   text: string;
@@ -293,6 +296,25 @@ export async function POST(request: Request) {
 
     const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
 
+   let retrievedKnowledgeBlock =
+  "No internal knowledge retrieval was performed for this answer.";
+
+try {
+  const latestQuestion = latestUserMessage?.text?.trim() ?? "";
+
+  if (latestQuestion.length > 0) {
+    const retrievedKnowledge = await retrieveRelevantKnowledge({
+      figureSlug: figure.slug,
+      query: latestQuestion,
+      matchCount: chatMode === "factual" ? 5 : 3,
+    });
+
+    retrievedKnowledgeBlock = formatRetrievedKnowledgeBlock(retrievedKnowledge);
+  }
+} catch (error) {
+  console.warn("RAG retrieval failed, continuing without RAG:", error);
+}
+
     const systemPrompt = buildFigureSystemPrompt(figure, chatMode);
 
     const answerVariation = buildAnswerVariationInstruction(
@@ -358,7 +380,16 @@ ${modeAnswerInstruction}
 
 Conversation:
 ${conversation}
+INTERNAL RETRIEVED KNOWLEDGE:
+${retrievedKnowledgeBlock}
 
+How to use retrieved knowledge:
+- Use this internal knowledge when it is relevant to the user's latest question.
+- Do not mention retrieval, embeddings, vectors, or internal database.
+- If retrieved knowledge is weak or unrelated, ignore it.
+- In ფაქტობრივი mode, prioritize retrieved knowledge and be careful with uncertainty.
+- In ცოცხალი mode, use retrieved knowledge as background memory, but keep the answer expressive and character-driven.
+- Never invent facts that contradict retrieved knowledge.
 Answer only the latest user message.
 
 Important:
