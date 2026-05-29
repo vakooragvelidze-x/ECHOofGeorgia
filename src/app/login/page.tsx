@@ -94,12 +94,10 @@ async function handleGoogleLogin() {
           </div>
           
           <h1 className="mt-4 text-4xl font-black tracking-[-0.05em]">
-            შესვლა
+            ავტორიზაცია
           </h1>
 
-          <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
-            შედი ანგარიშში და გააგრძელე შენახული საუბრები.
-          </p>
+          
 <button
   type="button"
   onClick={() => void handleGoogleLogin()}

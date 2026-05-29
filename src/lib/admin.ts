@@ -1,5 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 
+function getAdminEmails() {
+  return (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isEmailWhitelistedAdmin(email?: string | null) {
+  if (!email) return false;
+  return getAdminEmails().includes(email.toLowerCase());
+}
+
 export async function requireAdmin() {
   const supabase = await createClient();
 
@@ -22,9 +34,13 @@ export async function requireAdmin() {
     .from("profiles")
     .select("id, email, full_name, role, plan")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (profileError || !profile || profile.role !== "admin") {
+  const isWhitelistedAdmin = isEmailWhitelistedAdmin(user.email);
+  const isProfileAdmin = profile?.role === "admin";
+  const isAdmin = isWhitelistedAdmin || isProfileAdmin;
+
+  if (!isAdmin) {
     return {
       supabase,
       user,
