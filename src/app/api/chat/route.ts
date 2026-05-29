@@ -1,5 +1,8 @@
 import { buildAnswerVariationInstruction } from "@/data/answerVariation";
-import { buildFigureSystemPrompt } from "@/data/figurePrompts";
+import {
+  buildFigureSystemPrompt,
+  type ChatMode,
+} from "@/data/figurePrompts";
 import { getFigureBySlug } from "@/data/figures";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -37,6 +40,7 @@ function getTodayStartIso() {
   today.setHours(0, 0, 0, 0);
   return today.toISOString();
 }
+
 function trimContextToLimit(messages: ChatMessage[]) {
   const trimmedMessages: ChatMessage[] = [];
   let totalLength = 0;
@@ -154,6 +158,11 @@ export async function POST(request: Request) {
     const messages = body.messages as ChatMessage[] | undefined;
     const conversationId = body.conversationId as string | undefined;
 
+    const chatMode: ChatMode =
+      body.chatMode === "living" || body.chatMode === "factual"
+        ? body.chatMode
+        : "factual";
+
     if (!slug) {
       return NextResponse.json(
         { error: "Missing figure slug." },
@@ -181,30 +190,33 @@ export async function POST(request: Request) {
       await getUserPlanAndUsage();
 
     const latestUserMessageForValidation = [...messages]
-  .reverse()
-  .find((message) => message.role === "user");
+      .reverse()
+      .find((message) => message.role === "user");
 
-if (!latestUserMessageForValidation?.text?.trim()) {
-  return NextResponse.json(
-    {
-      code: "EMPTY_MESSAGE",
-      error: "Empty message.",
-message: "შეკითხვის ველი ცარიელია. გთხოვ, ჯერ შეკითხვა ჩაწერე.",    },
-    { status: 400 }
-  );
-}
+    if (!latestUserMessageForValidation?.text?.trim()) {
+      return NextResponse.json(
+        {
+          code: "EMPTY_MESSAGE",
+          error: "Empty message.",
+          message: "შეკითხვის ველი ცარიელია. გთხოვ, ჯერ შეკითხვა ჩაწერე.",
+        },
+        { status: 400 }
+      );
+    }
 
-if (latestUserMessageForValidation.text.length > MAX_USER_MESSAGE_LENGTH) {
-  return NextResponse.json(
-    {
-      code: "MESSAGE_TOO_LONG",
-      error: "Message is too long.",
-message: "შეტყობინება ძალიან ვრცელია. გთხოვ, ტექსტი 1200 სიმბოლომდე შეამცირე და თავიდან სცადე.",      limit: MAX_USER_MESSAGE_LENGTH,
-    },
-    { status: 413 }
-  );
-}
-    
+    if (latestUserMessageForValidation.text.length > MAX_USER_MESSAGE_LENGTH) {
+      return NextResponse.json(
+        {
+          code: "MESSAGE_TOO_LONG",
+          error: "Message is too long.",
+          message:
+            "შეტყობინება ძალიან ვრცელია. გთხოვ, ტექსტი 1200 სიმბოლომდე შეამცირე და თავიდან სცადე.",
+          limit: MAX_USER_MESSAGE_LENGTH,
+        },
+        { status: 413 }
+      );
+    }
+
     const isFreeRegisteredUser = Boolean(user && plan === "free");
     const isUnlimitedUser = Boolean(user && plan === "unlimited");
 
@@ -271,27 +283,51 @@ message: "შეტყობინება ძალიან ვრცელ�
     }
 
     const safeMessagesBeforeContextLimit = messages
-  .filter(
-    (message) =>
-      (message.role === "user" || message.role === "assistant") &&
-      typeof message.text === "string" &&
-      message.text.trim().length > 0
-  )
-  .slice(-8);
+      .filter(
+        (message) =>
+          (message.role === "user" || message.role === "assistant") &&
+          typeof message.text === "string" &&
+          message.text.trim().length > 0
+      )
+      .slice(-8);
 
-const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
+    const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
 
-    const systemPrompt = buildFigureSystemPrompt(figure);
+    const systemPrompt = buildFigureSystemPrompt(figure, chatMode);
+
     const answerVariation = buildAnswerVariationInstruction(
       figure,
       safeMessages
     );
+
     const conversation = formatConversation(safeMessages);
+
+    const modeAnswerInstruction =
+      chatMode === "living"
+        ? `
+Mode-specific instruction:
+You are in ცოცხალი mode. Be vivid, expressive, and character-driven.
+You may create imaginative interpretations, inner reflections, symbolic memories, speeches, letters, poems, and emotionally expressive answers when helpful.
+You are not restricted only to historically confirmed facts in this mode.
+However, do not present invented content as verified history.
+If you imagine something, frame it naturally as interpretation, spirit, memory-like imagination, or legend-style expression.
+Stay faithful to ${figure.nameKa}'s worldview, dignity, era, language, and known personality.
+Do not become modern slangy, childish, fantasy-like, or generic.
+`
+        : `
+Mode-specific instruction:
+You are in ფაქტობრივი mode. Stay historically careful and grounded.
+Do not invent unconfirmed details, private memories, fake events, fake quotes, or fictional relationships.
+When something is uncertain, say so clearly.
+Separate confirmed history, legend, and interpretation.
+`;
 
     const input = `
 Continue this conversation in first person as ${figure.nameKa}.
 
 ${answerVariation}
+
+${modeAnswerInstruction}
 
 Conversation:
 ${conversation}

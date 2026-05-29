@@ -56,6 +56,10 @@ export async function POST(request: Request) {
 
   const figureSlug = body.figureSlug as string | undefined;
   const firstMessage = body.firstMessage as string | undefined;
+  const chatMode =
+  body.chatMode === "living" || body.chatMode === "factual"
+    ? body.chatMode
+    : "factual";
 
   if (!figureSlug) {
     return NextResponse.json(
@@ -67,11 +71,12 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("conversations")
     .insert({
-      user_id: user.id,
-      figure_slug: figureSlug,
-      title: createTitleFromMessage(firstMessage),
-    })
-    .select("id, figure_slug, title, created_at, updated_at")
+  user_id: user.id,
+  figure_slug: figureSlug,
+  title: createTitleFromMessage(firstMessage),
+  chat_mode: chatMode,
+})
+    .select("id, figure_slug, title, chat_mode, created_at, updated_at")
     .single();
 
   if (error) {

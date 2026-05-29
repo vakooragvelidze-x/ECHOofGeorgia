@@ -29,6 +29,7 @@ type Message = {
   text: string;
 };
 
+type ChatMode = "factual" | "living";
 type AuthStatus = "loading" | "guest" | "user";
 
 type LimitNotice = {
@@ -50,6 +51,7 @@ type SavedConversation = {
   id: string;
   figure_slug: string;
   title: string;
+  chat_mode?: ChatMode;
   created_at: string;
   updated_at: string;
 };
@@ -68,6 +70,16 @@ type StableAssistantAvatarProps = {
 
 const GUEST_FREE_LIMIT = 5;
 const GUEST_USAGE_KEY = "echo_georgia_guest_questions_used";
+
+const chatModeLabels: Record<ChatMode, string> = {
+  factual: "ფაქტობრივი",
+  living: "ცოცხალი",
+};
+
+const chatModeDescriptions: Record<ChatMode, string> = {
+  factual: "ფაქტებზე დაფუძნებული პასუხები",
+  living: "თავისუფალი AI ინტერპრეტაცია",
+};
 
 const StableAssistantAvatar = memo(function StableAssistantAvatar({
   src,
@@ -187,7 +199,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [guestUsageCount, setGuestUsageCountState] = useState(0);
   const [limitNotice, setLimitNotice] = useState<LimitNotice | null>(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
-
+  const [chatMode, setChatMode] = useState<ChatMode>("factual");
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [savedConversations, setSavedConversations] = useState<
     SavedConversation[]
   >([]);
@@ -307,6 +320,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       body: JSON.stringify({
         figureSlug: figure.slug,
         firstMessage,
+        chatMode,
       }),
     });
 
@@ -341,6 +355,18 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     stopGeneration();
     setIsOpeningConversation(true);
     setLimitNotice(null);
+    setIsModeMenuOpen(false);
+
+    const openedConversation = savedConversations.find(
+      (conversation) => conversation.id === conversationId
+    );
+
+    if (
+      openedConversation?.chat_mode === "living" ||
+      openedConversation?.chat_mode === "factual"
+    ) {
+      setChatMode(openedConversation.chat_mode);
+    }
 
     try {
       const response = await fetch(
@@ -448,6 +474,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     stopGeneration();
     setInput("");
     setLimitNotice(null);
+    setIsModeMenuOpen(false);
     setActiveConversationId(null);
     setMessages([initialAssistantMessage]);
   }
@@ -508,9 +535,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     const errorText = await response.text();
 
     let payload: ChatErrorResponse | null = null;
-   
-      
-    
+
     try {
       payload = JSON.parse(errorText) as ChatErrorResponse;
     } catch {
@@ -533,20 +558,21 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
       return;
     }
+
     if (payload?.code === "MESSAGE_TOO_LONG" || payload?.code === "EMPTY_MESSAGE") {
-  const readableMessage =
-    payload.message ?? "შეტყობინების გაგზავნა ვერ მოხერხდა.";
+      const readableMessage =
+        payload.message ?? "შეტყობინების გაგზავნა ვერ მოხერხდა.";
 
-  updateStreamingAssistantMessage(assistantId, requestId, readableMessage);
+      updateStreamingAssistantMessage(assistantId, requestId, readableMessage);
 
-  activeRequestIdRef.current = null;
-  abortControllerRef.current = null;
-  clearSlowThinkingTimer();
-  setTypingMessageId(null);
-  setIsLoading(false);
+      activeRequestIdRef.current = null;
+      abortControllerRef.current = null;
+      clearSlowThinkingTimer();
+      setTypingMessageId(null);
+      setIsLoading(false);
 
-  return;
-}
+      return;
+    }
 
     throw new Error(
       payload?.error || errorText || "Failed to generate response."
@@ -570,6 +596,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
 
     setLimitNotice(null);
+    setIsModeMenuOpen(false);
 
     const requestId = Date.now();
     const assistantId = requestId + 1;
@@ -628,6 +655,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         body: JSON.stringify({
           slug: figure.slug,
           conversationId: conversationIdForRequest,
+          chatMode,
           messages: updatedMessages.map((message) => ({
             role: message.role,
             text: message.text,
@@ -919,6 +947,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                     <span className="block truncate text-xs font-bold leading-5">
                       {conversation.title}
                     </span>
+
+                    {conversation.chat_mode && (
+                      <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[0.08em] text-[#756b63]">
+                        {conversation.chat_mode === "living"
+                          ? "ცოცხალი"
+                          : "ფაქტობრივი"}
+                      </span>
+                    )}
                   </button>
 
                   <span className="hidden shrink-0 pr-1 text-[10px] text-[#756b63] group-hover:hidden xl:block">
@@ -960,8 +996,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               </div>
             </div>
 
-            <div className="hidden rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a] sm:block">
-              {figure.era}
+            <div className="hidden items-center gap-2 sm:flex">
+              <div className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-1 text-xs font-bold text-[#b8aea3]">
+                {chatModeLabels[chatMode]}
+              </div>
+
+              <div className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a]">
+                {figure.era}
+              </div>
             </div>
           </div>
         </header>
@@ -1079,6 +1121,45 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             )}
 
             <div className="flex gap-3">
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsModeMenuOpen((value) => !value)}
+                  disabled={isLoading || isOpeningConversation}
+                  title={chatModeDescriptions[chatMode]}
+                  className="h-full min-h-[46px] rounded-full border border-[#f4efe6]/10 bg-[#171010] px-3 text-[10px] font-black text-[#d8c08a] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-xs"
+                >
+                  {chatModeLabels[chatMode]} ▾
+                </button>
+
+                {isModeMenuOpen && (
+                  <div className="absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden rounded-2xl border border-[#f4efe6]/10 bg-[#171010] p-1 shadow-2xl">
+                    {(["factual", "living"] as ChatMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setChatMode(mode);
+                          setIsModeMenuOpen(false);
+                        }}
+                        className={`w-full rounded-xl px-3 py-2 text-left transition ${
+                          chatMode === mode
+                            ? "bg-[#c9a45c]/15 text-[#f4efe6]"
+                            : "text-[#b8aea3] hover:bg-[#f4efe6]/6 hover:text-[#f4efe6]"
+                        }`}
+                      >
+                        <span className="block text-xs font-black">
+                          {chatModeLabels[mode]}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-[#756b63]">
+                          {chatModeDescriptions[mode]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
