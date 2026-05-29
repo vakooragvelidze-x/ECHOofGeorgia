@@ -200,6 +200,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [limitNotice, setLimitNotice] = useState<LimitNotice | null>(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [chatMode, setChatMode] = useState<ChatMode>("factual");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [savedConversations, setSavedConversations] = useState<
     SavedConversation[]

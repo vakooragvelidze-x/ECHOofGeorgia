@@ -166,6 +166,8 @@ export async function POST(request: Request) {
         ? body.chatMode
         : "factual";
 
+        const webSearchEnabled = body.webSearchEnabled === true;
+
     if (!slug) {
       return NextResponse.json(
         { error: "Missing figure slug." },
@@ -391,6 +393,8 @@ How to use retrieved knowledge:
 - In ცოცხალი mode, use retrieved knowledge as background memory, but keep the answer expressive and character-driven.
 - Never invent facts that contradict retrieved knowledge.
 Answer only the latest user message.
+WEB SOURCE REQUEST:
+${webSearchEnabled ? "The user requested source-backed web research. Live web search is not connected yet, so use only internal knowledge for this answer." : "The user did not request live web research."}
 
 Important:
 - Speak in first person by default.
