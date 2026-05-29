@@ -290,6 +290,19 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      <footer className="relative z-10 mx-auto mt-16 flex max-w-7xl flex-wrap items-center justify-center gap-4 border-t border-[#f4efe6]/10 px-5 py-8 text-sm text-[#756b63]">
+  <Link href="/about" className="transition hover:text-[#c9a45c]">
+    პროექტის შესახებ
+  </Link>
+  <span className="text-[#f4efe6]/15">•</span>
+  <Link href="/privacy" className="transition hover:text-[#c9a45c]">
+    კონფიდენციალურობა
+  </Link>
+  <span className="text-[#f4efe6]/15">•</span>
+  <Link href="/terms" className="transition hover:text-[#c9a45c]">
+    პირობები
+  </Link>
+</footer>
     </main>
   );
 }

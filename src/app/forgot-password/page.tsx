@@ -1,5 +1,5 @@
 "use client";
-
+import { getFriendlyAuthError } from "@/lib/authError";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { ArrowLeft, Mail } from "lucide-react";

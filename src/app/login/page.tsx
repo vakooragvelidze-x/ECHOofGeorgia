@@ -1,4 +1,5 @@
 "use client";
+import { getFriendlyAuthError } from "@/lib/authError";
 import BackHomeButton from "@/components/BackHomeButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
