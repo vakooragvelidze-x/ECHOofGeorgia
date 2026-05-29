@@ -1,10 +1,11 @@
 "use client";
-import { getFriendlyAuthError } from "@/lib/authError";
+
 import BackHomeButton from "@/components/BackHomeButton";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -46,40 +47,46 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   }
-async function handleGoogleLogin() {
-  setError("");
-  setIsLoading(true);
 
-  try {
-    const supabase = createClient();
+  async function handleGoogleLogin() {
+    setError("");
+    setIsLoading(true);
 
-    const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback`
-        : "https://echogeorgia.com/auth/callback";
+    try {
+      const supabase = createClient();
 
-    const { error: googleError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account",
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/auth/callback`
+          : "https://echogeorgia.com/auth/callback";
+
+      const { error: googleError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: "offline",
+            prompt: "select_account",
+          },
         },
-      },
-    });
+      });
 
-    if (googleError) {
-      throw googleError;
+      if (googleError) {
+        throw googleError;
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      setError("Google-ით შესვლა ვერ მოხერხდა. სცადე თავიდან.");
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Google login error:", error);
-    setError("Google-ით შესვლა ვერ მოხერხდა. სცადე თავიდან.");
-    setIsLoading(false);
   }
-}
+
   return (
-    <main className="min-h-screen bg-[#0e0b0b] px-5 py-10 text-[#f4efe6]">
+    <main className="relative min-h-screen bg-[#0e0b0b] px-5 py-10 text-[#f4efe6]">
+      <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-8">
+        <BackHomeButton />
+      </div>
+
       <div className="mx-auto flex min-h-[80vh] max-w-md items-center">
         <form
           onSubmit={handleLogin}
@@ -89,29 +96,26 @@ async function handleGoogleLogin() {
             ECHO Georgia
           </p>
 
-          <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-8">
-          <BackHomeButton /> 
-          </div>
-          
-          <h1 className="mt-4 text-4xl font-black tracking-[-0.05em]">
+          <h1 className="mt-6 text-4xl font-black tracking-[-0.05em]">
             ავტორიზაცია
           </h1>
 
-          
-<button
-  type="button"
-  onClick={() => void handleGoogleLogin()}
-  disabled={isLoading}
-  className="flex w-full items-center justify-center gap-3 rounded-full border border-[#f4efe6]/10 bg-[#f4efe6] px-6 py-4 text-sm font-black text-[#140d0d] transition hover:bg-[#c9a45c] disabled:cursor-not-allowed disabled:opacity-60"
->
-  Google-ით შესვლა
-</button>
-<div className="my-5 flex items-center gap-3">
-  <div className="h-px flex-1 bg-[#f4efe6]/10" />
-  <span className="text-xs font-bold text-[#756b63]">ან</span>
-  <div className="h-px flex-1 bg-[#f4efe6]/10" />
-</div>
-          <div className="mt-7 space-y-4">
+          <button
+            type="button"
+            onClick={() => void handleGoogleLogin()}
+            disabled={isLoading}
+            className="mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-[#f4efe6]/10 bg-[#f4efe6] px-6 py-4 text-sm font-black text-[#140d0d] transition hover:bg-[#c9a45c] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Google-ით შესვლა
+          </button>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#f4efe6]/10" />
+            <span className="text-xs font-bold text-[#756b63]">ან</span>
+            <div className="h-px flex-1 bg-[#f4efe6]/10" />
+          </div>
+
+          <div className="space-y-4">
             <input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -144,11 +148,13 @@ async function handleGoogleLogin() {
           >
             {isLoading ? "შესვლა..." : "შესვლა"}
           </button>
-<div className="mt-4 text-center text-sm text-[#b8aea3]">
-  <Link href="/forgot-password" className="font-black text-[#c9a45c]">
-    დაგავიწყდა პაროლი?
-  </Link>
-</div>
+
+          <div className="mt-4 text-center text-sm text-[#b8aea3]">
+            <Link href="/forgot-password" className="font-black text-[#c9a45c]">
+              დაგავიწყდა პაროლი?
+            </Link>
+          </div>
+
           <p className="mt-5 text-center text-sm text-[#b8aea3]">
             არ გაქვს ანგარიში?{" "}
             <Link href="/register" className="font-bold text-[#c9a45c]">
