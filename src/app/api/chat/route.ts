@@ -12,6 +12,8 @@ type ChatMessage = {
 type UserPlan = "guest" | "free" | "premium" | "unlimited";
 
 const FREE_DAILY_LIMIT = 15;
+const MAX_USER_MESSAGE_LENGTH = 1200;
+const MAX_CONTEXT_CHARACTERS = 6000;
 
 function formatConversation(messages: ChatMessage[]) {
   return messages
@@ -34,6 +36,23 @@ function getTodayStartIso() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today.toISOString();
+}
+function trimContextToLimit(messages: ChatMessage[]) {
+  const trimmedMessages: ChatMessage[] = [];
+  let totalLength = 0;
+
+  for (const message of [...messages].reverse()) {
+    const messageLength = message.text.length;
+
+    if (totalLength + messageLength > MAX_CONTEXT_CHARACTERS) {
+      break;
+    }
+
+    trimmedMessages.unshift(message);
+    totalLength += messageLength;
+  }
+
+  return trimmedMessages;
 }
 
 function normalizePlan(value: unknown): UserPlan {
@@ -161,6 +180,31 @@ export async function POST(request: Request) {
     const { user, plan, todayUsageCount, supabase } =
       await getUserPlanAndUsage();
 
+    const latestUserMessageForValidation = [...messages]
+  .reverse()
+  .find((message) => message.role === "user");
+
+if (!latestUserMessageForValidation?.text?.trim()) {
+  return NextResponse.json(
+    {
+      code: "EMPTY_MESSAGE",
+      error: "Empty message.",
+message: "შეკითხვის ველი ცარიელია. გთხოვ, ჯერ შეკითხვა ჩაწერე.",    },
+    { status: 400 }
+  );
+}
+
+if (latestUserMessageForValidation.text.length > MAX_USER_MESSAGE_LENGTH) {
+  return NextResponse.json(
+    {
+      code: "MESSAGE_TOO_LONG",
+      error: "Message is too long.",
+message: "შეტყობინება ძალიან ვრცელია. გთხოვ, ტექსტი 1200 სიმბოლომდე შეამცირე და თავიდან სცადე.",      limit: MAX_USER_MESSAGE_LENGTH,
+    },
+    { status: 413 }
+  );
+}
+    
     const isFreeRegisteredUser = Boolean(user && plan === "free");
     const isUnlimitedUser = Boolean(user && plan === "unlimited");
 
@@ -226,14 +270,16 @@ export async function POST(request: Request) {
         .eq("user_id", user.id);
     }
 
-    const safeMessages = messages
-      .filter(
-        (message) =>
-          (message.role === "user" || message.role === "assistant") &&
-          typeof message.text === "string" &&
-          message.text.trim().length > 0
-      )
-      .slice(-8);
+    const safeMessagesBeforeContextLimit = messages
+  .filter(
+    (message) =>
+      (message.role === "user" || message.role === "assistant") &&
+      typeof message.text === "string" &&
+      message.text.trim().length > 0
+  )
+  .slice(-8);
+
+const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
 
     const systemPrompt = buildFigureSystemPrompt(figure);
     const answerVariation = buildAnswerVariationInstruction(

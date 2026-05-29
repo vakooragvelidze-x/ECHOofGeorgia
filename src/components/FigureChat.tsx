@@ -508,7 +508,9 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     const errorText = await response.text();
 
     let payload: ChatErrorResponse | null = null;
-
+   
+      
+    
     try {
       payload = JSON.parse(errorText) as ChatErrorResponse;
     } catch {
@@ -531,6 +533,20 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
       return;
     }
+    if (payload?.code === "MESSAGE_TOO_LONG" || payload?.code === "EMPTY_MESSAGE") {
+  const readableMessage =
+    payload.message ?? "შეტყობინების გაგზავნა ვერ მოხერხდა.";
+
+  updateStreamingAssistantMessage(assistantId, requestId, readableMessage);
+
+  activeRequestIdRef.current = null;
+  abortControllerRef.current = null;
+  clearSlowThinkingTimer();
+  setTypingMessageId(null);
+  setIsLoading(false);
+
+  return;
+}
 
     throw new Error(
       payload?.error || errorText || "Failed to generate response."
