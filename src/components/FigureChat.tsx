@@ -6,11 +6,13 @@ import {
   Bot,
   Clock3,
   LogIn,
+  Menu,
   Plus,
   Send,
   Square,
   Trash2,
   UserRound,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -79,12 +81,17 @@ const GUEST_USAGE_KEY = "echo_georgia_guest_questions_used";
 
 const chatModeLabels: Record<ChatMode, string> = {
   factual: "ფაქტობრივი",
+  living: "ცოცხალი საუბარი",
+};
+
+const chatModeShortLabels: Record<ChatMode, string> = {
+  factual: "ფაქტობრივი",
   living: "ცოცხალი",
 };
 
 const chatModeDescriptions: Record<ChatMode, string> = {
-  factual: "ფაქტებზე დაფუძნებული პასუხები",
-  living: "თავისუფალი AI ინტერპრეტაცია",
+  factual: "ისტორიულად ფრთხილი პასუხები — ფაქტებზე, ცნობილ წყაროებზე და დადასტურებულ ინფორმაციაზე დაყრდნობით.",
+  living: "თავისუფალი საუბარი პერსონაჟის ხმით — უფრო ემოციური, აზრიანი და ინტერპრეტაციული პასუხებისთვის.",
 };
 
 const StableAssistantAvatar = memo(function StableAssistantAvatar({
@@ -328,6 +335,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [chatMode, setChatMode] = useState<ChatMode>("factual");
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [savedConversations, setSavedConversations] = useState<
     SavedConversation[]
   >([]);
@@ -533,6 +541,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setIsOpeningConversation(true);
     setLimitNotice(null);
     setIsModeMenuOpen(false);
+    setIsMobileSidebarOpen(false);
 
     const openedConversation = savedConversations.find(
       (conversation) => conversation.id === conversationId
@@ -657,6 +666,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setInput("");
     setLimitNotice(null);
     setIsModeMenuOpen(false);
+    setIsMobileSidebarOpen(false);
     setActiveConversationId(null);
     setMessages([initialAssistantMessage]);
   }
@@ -666,6 +676,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setInput("");
     setLimitNotice(null);
     setIsModeMenuOpen(false);
+    setIsMobileSidebarOpen(false);
     setMessages([initialAssistantMessage]);
 
     if (authStatus !== "user") {
@@ -1056,9 +1067,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     !limitNotice &&
     suggestedQuestions.length > 0;
 
-  return (
-    <section className="relative z-10 mx-auto grid h-[calc(100vh-120px)] max-w-7xl gap-5 overflow-hidden pb-0 lg:grid-cols-[250px_minmax(0,1fr)]">
-      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-3 backdrop-blur-xl lg:flex">
+
+  function renderSidebarContent() {
+    return (
+      <>
         <button
           type="button"
           onClick={() => {
@@ -1194,12 +1206,60 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             })}
           </div>
         </div>
+
+      </>
+    );
+  }
+
+  return (
+    <section className="relative z-10 mx-auto grid h-[calc(100vh-120px)] max-w-7xl gap-5 overflow-hidden pb-0 lg:grid-cols-[250px_minmax(0,1fr)]">
+      {isMobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="საუბრების დახურვა"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+          />
+
+          <aside className="relative z-10 flex h-full w-[86vw] max-w-[340px] flex-col overflow-hidden border-r border-[#f4efe6]/10 bg-[#120d0d] p-3 shadow-2xl">
+            <div className="mb-3 flex shrink-0 items-center justify-between rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#d8c08a]">
+                საუბრები
+              </p>
+
+              <button
+                type="button"
+                aria-label="დახურვა"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-full border border-[#f4efe6]/10 text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {renderSidebarContent()}
+          </aside>
+        </div>
+      )}
+
+      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-3 backdrop-blur-xl lg:flex">
+        {renderSidebarContent()}
       </aside>
 
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 backdrop-blur-xl">
         <header className="shrink-0 border-b border-[#f4efe6]/8 px-5 py-4 sm:px-7">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 text-[#f4efe6] transition hover:bg-[#f4efe6]/10 lg:hidden"
+                aria-label="საუბრები"
+              >
+                <Menu size={17} />
+              </button>
+
               <StableAssistantAvatar src={avatarImage} alt={figure.nameKa} />
 
               <div>
@@ -1213,9 +1273,12 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             </div>
 
             <div className="hidden items-center gap-2 sm:flex">
-              <div className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-1 text-xs font-bold text-[#b8aea3]">
-                {chatModeLabels[chatMode]}
-              </div>
+              <div
+  title={chatModeDescriptions[chatMode]}
+  className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-1 text-xs font-bold text-[#b8aea3]"
+>
+  {chatModeShortLabels[chatMode]}
+</div>
 
               <div className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a]">
                 {figure.era}
@@ -1345,11 +1408,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   title={chatModeDescriptions[chatMode]}
                   className="min-h-[46px] rounded-full border border-[#f4efe6]/10 bg-[#171010] px-3 text-[10px] font-black text-[#d8c08a] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-xs"
                 >
-                  {chatModeLabels[chatMode]} ▾
+                 {chatModeShortLabels[chatMode]} ▾
                 </button>
 
                 {isModeMenuOpen && (
-                  <div className="absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden rounded-2xl border border-[#f4efe6]/10 bg-[#171010] p-1 shadow-2xl">
+                  <div className="absolute bottom-full left-0 z-30 mb-2 w-72 overflow-hidden rounded-2xl border border-[#f4efe6]/10 bg-[#171010] p-1 shadow-2xl">
                     {(["factual", "living"] as ChatMode[]).map((mode) => (
                       <button
                         key={mode}
@@ -1365,11 +1428,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                         }`}
                       >
                         <span className="block text-xs font-black">
-                          {chatModeLabels[mode]}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] leading-4 text-[#756b63]">
-                          {chatModeDescriptions[mode]}
-                        </span>
+  {chatModeLabels[mode]}
+</span>
+<span className="mt-1 block text-[10px] leading-4 text-[#8f8378]">
+  {chatModeDescriptions[mode]}
+</span>
                       </button>
                     ))}
                   </div>
