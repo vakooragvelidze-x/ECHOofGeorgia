@@ -13,6 +13,7 @@ import {
   improveAnswerWithCritic,
   shouldRunAnswerCritic,
 } from "@/lib/answerCritic";
+import { generateGeminiText } from "@/lib/gemini";
 import {
   formatRetrievedKnowledgeBlock,
   retrieveRelevantKnowledge,
@@ -30,7 +31,6 @@ type UserPlan = "guest" | "free" | "premium" | "unlimited";
 const FREE_DAILY_LIMIT = 15;
 const MAX_USER_MESSAGE_LENGTH = 1200;
 const MAX_CONTEXT_CHARACTERS = 6000;
-
 
 function normalizeTextForIntent(text: string) {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
@@ -75,7 +75,6 @@ function createFastCasualAnswerPlan() {
   };
 }
 
-
 function formatConversation(messages: ChatMessage[]) {
   return messages
     .map((message) => {
@@ -84,7 +83,6 @@ function formatConversation(messages: ChatMessage[]) {
     })
     .join("\n\n");
 }
-
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -192,31 +190,15 @@ async function getUserPlanAndUsage() {
   };
 }
 
-function getStreamDelay(chunk: string) {
-  const trimmed = chunk.trim();
-
-  if (!trimmed) return 10;
-
-  if (
-    trimmed.endsWith(".") ||
-    trimmed.endsWith("?") ||
-    trimmed.endsWith("!") ||
-    trimmed.endsWith("…")
-  ) {
-    return 90;
-  }
-
-  if (trimmed.endsWith(",") || trimmed.endsWith(";") || trimmed.endsWith(":")) {
-    return 55;
-  }
-
-  return 28;
-}
-
 function getCharacterDelay(character: string) {
   if (character === "\n") return 140;
 
-  if (character === "." || character === "?" || character === "!" || character === "…") {
+  if (
+    character === "." ||
+    character === "?" ||
+    character === "!" ||
+    character === "…"
+  ) {
     return 120;
   }
 
@@ -253,6 +235,55 @@ function createManualTextStream(text: string) {
       controller.close();
     },
   });
+}
+
+async function generateOpenAiFinalAnswer({
+  apiKey,
+  request,
+  systemPrompt,
+  input,
+}: {
+  apiKey: string;
+  request: Request;
+  systemPrompt: string;
+  input: string;
+}) {
+  const draftResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    signal: request.signal,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-5.4",
+      instructions: systemPrompt,
+      input,
+      stream: false,
+    }),
+  });
+
+  if (!draftResponse.ok) {
+    const errorText = await draftResponse.text();
+
+    return {
+      text: "",
+      errorResponse: NextResponse.json(
+        {
+          error: `OpenAI API error: ${errorText}`,
+        },
+        { status: draftResponse.status }
+      ),
+    };
+  }
+
+  const draftData = await draftResponse.json();
+  const text = extractTextFromResponse(draftData).trim();
+
+  return {
+    text,
+    errorResponse: null,
+  };
 }
 
 export async function POST(request: Request) {
@@ -413,26 +444,27 @@ export async function POST(request: Request) {
     const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
 
     const latestQuestionForPlanning = latestUserMessage?.text?.trim() ?? "";
-const shouldUseFastCasualPath = isFastCasualMessage(latestQuestionForPlanning);
+    const shouldUseFastCasualPath =
+      isFastCasualMessage(latestQuestionForPlanning);
 
-let answerPlan = shouldUseFastCasualPath
-  ? createFastCasualAnswerPlan()
-  : fallbackAnswerPlan;
+    let answerPlan = shouldUseFastCasualPath
+      ? createFastCasualAnswerPlan()
+      : fallbackAnswerPlan;
 
-if (!shouldUseFastCasualPath) {
-  try {
-    answerPlan = await createAnswerPlan({
-      apiKey,
-      figureNameKa: figure.nameKa,
-      figureNameEn: figure.nameEn,
-      chatMode,
-      webSearchEnabled,
-      messages: safeMessages,
-    });
-  } catch (error) {
-    console.warn("Answer planner failed, using fallback plan:", error);
-  }
-}
+    if (!shouldUseFastCasualPath) {
+      try {
+        answerPlan = await createAnswerPlan({
+          apiKey,
+          figureNameKa: figure.nameKa,
+          figureNameEn: figure.nameEn,
+          chatMode,
+          webSearchEnabled,
+          messages: safeMessages,
+        });
+      } catch (error) {
+        console.warn("Answer planner failed, using fallback plan:", error);
+      }
+    }
 
     let retrievedKnowledgeBlock =
       "No internal knowledge retrieval was performed for this answer.";
@@ -575,45 +607,66 @@ Important:
 - Go longer only if the user asks for depth, analysis, essay, or detailed explanation.
 `;
 
-    const draftResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      signal: request.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.4",
-        instructions: systemPrompt,
+    const shouldUseGeminiForFinalAnswer =
+  chatMode === "living" &&
+  process.env.USE_GEMINI_FOR_LIVING === "true" &&
+  !shouldUseFastCasualPath &&
+  answerPlan.answerDepth !== "tiny";
+
+    let finalAssistantText = "";
+
+    if (shouldUseGeminiForFinalAnswer) {
+      try {
+        finalAssistantText = await generateGeminiText({
+          instructions: systemPrompt,
+          input,
+        });
+      } catch (geminiError) {
+        console.warn(
+          "Gemini final answer failed, falling back to OpenAI:",
+          geminiError
+        );
+
+        const fallbackResult = await generateOpenAiFinalAnswer({
+          apiKey,
+          request,
+          systemPrompt,
+          input,
+        });
+
+        if (fallbackResult.errorResponse) {
+          return fallbackResult.errorResponse;
+        }
+
+        finalAssistantText = fallbackResult.text;
+      }
+    } else {
+      const openAiResult = await generateOpenAiFinalAnswer({
+        apiKey,
+        request,
+        systemPrompt,
         input,
-        stream: false,
-      }),
-    });
+      });
 
-    if (!draftResponse.ok) {
-      const errorText = await draftResponse.text();
+      if (openAiResult.errorResponse) {
+        return openAiResult.errorResponse;
+      }
 
-      return NextResponse.json(
-        {
-          error: `OpenAI API error: ${errorText}`,
-        },
-        { status: draftResponse.status }
-      );
+      finalAssistantText = openAiResult.text;
     }
 
-    const draftData = await draftResponse.json();
-    let finalAssistantText = extractTextFromResponse(draftData).trim();
+    finalAssistantText = finalAssistantText.trim();
 
     if (!finalAssistantText) {
       return NextResponse.json(
         {
-          error: "OpenAI response was empty.",
+          error: "AI response was empty.",
         },
         { status: 500 }
       );
     }
 
-    if (shouldRunAnswerCritic(answerPlan)) {
+    if (!shouldUseGeminiForFinalAnswer && shouldRunAnswerCritic(answerPlan)) {
       try {
         finalAssistantText = await improveAnswerWithCritic({
           apiKey,
