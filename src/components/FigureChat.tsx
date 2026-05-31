@@ -1077,13 +1077,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             void startNewSavedChat();
           }}
           disabled={isLoading || isOpeningConversation || authStatus === "loading"}
-          className="mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-black text-[#f4efe6] transition hover:bg-[#f4efe6]/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-[1.25rem] border border-[#d8c08a]/25 bg-gradient-to-br from-[#d8c08a] via-[#c9a45c] to-[#8b6b32] px-4 py-3 text-sm font-black text-[#120d0d] shadow-[0_12px_35px_rgba(201,164,92,0.18)] transition hover:scale-[1.01] hover:from-[#f4efe6] hover:to-[#c9a45c] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus size={15} />
           ახალი საუბარი
         </button>
 
-        <div className="mb-4 shrink-0 rounded-2xl border border-[#c9a45c]/16 bg-[#c9a45c]/8 p-3">
+        <div className="mb-4 shrink-0 overflow-hidden rounded-[1.35rem] border border-[#c9a45c]/20 bg-[radial-gradient(circle_at_20%_0%,rgba(201,164,92,0.22),transparent_34%),linear-gradient(135deg,rgba(244,239,230,0.075),rgba(244,239,230,0.025))] p-3 shadow-[inset_0_1px_0_rgba(244,239,230,0.08)]">
           <div className="flex items-center gap-3">
             <StableAssistantAvatar src={avatarImage} alt={figure.nameKa} />
 
@@ -1099,7 +1099,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         </div>
 
         {authStatus === "guest" && (
-          <div className="mb-4 shrink-0 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 p-3">
+          <div className="mb-4 shrink-0 rounded-[1.35rem] border border-[#f4efe6]/10 bg-[#f4efe6]/[0.055] p-3 shadow-[inset_0_1px_0_rgba(244,239,230,0.06)]">
             <p className="text-xs font-black text-[#f4efe6]">საცდელი რეჟიმი</p>
             <p className="mt-1.5 text-[11px] leading-4 text-[#b8aea3]">
               {guestUsageCount}/{GUEST_FREE_LIMIT} უფასო კითხვა.
@@ -1122,26 +1122,26 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         )}
 
         <div className="min-h-0 flex-1">
-          <div className="mb-2 flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#756b63]">
+          <div className="mb-2 flex items-center gap-2 px-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#8f8378]">
             <Clock3 size={13} />
             საუბრები
           </div>
 
-          <div className="chat-scroll-area h-[calc(100%-24px)] space-y-1.5 overflow-y-auto pr-1">
+          <div className="chat-scroll-area h-[calc(100%-24px)] space-y-2 overflow-y-auto pr-1">
             {authStatus === "loading" && (
-              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+              <div className="rounded-2xl border border-dashed border-[#f4efe6]/10 bg-[#f4efe6]/[0.025] px-3 py-3 text-[11px] leading-5 text-[#8f8378]">
                 იტვირთება...
               </div>
             )}
 
             {authStatus === "guest" && (
-              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+              <div className="rounded-2xl border border-dashed border-[#f4efe6]/10 bg-[#f4efe6]/[0.025] px-3 py-3 text-[11px] leading-5 text-[#8f8378]">
                 შესვლის შემდეგ საუბრები აქ გამოჩნდება.
               </div>
             )}
 
             {authStatus === "user" && isLoadingConversations && (
-              <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+              <div className="rounded-2xl border border-dashed border-[#f4efe6]/10 bg-[#f4efe6]/[0.025] px-3 py-3 text-[11px] leading-5 text-[#8f8378]">
                 საუბრები იტვირთება...
               </div>
             )}
@@ -1149,7 +1149,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             {authStatus === "user" &&
               !isLoadingConversations &&
               savedConversations.length === 0 && (
-                <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
+                <div className="rounded-2xl border border-dashed border-[#f4efe6]/10 bg-[#f4efe6]/[0.025] px-3 py-3 text-[11px] leading-5 text-[#8f8378]">
                   ჯერ შენახული საუბარი არ გაქვს.
                 </div>
               )}
@@ -1160,24 +1160,24 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               return (
                 <div
                   key={conversation.id}
-                  className={`group flex w-full items-center gap-1 rounded-xl transition ${
+                  className={`group flex w-full items-center gap-1 rounded-[1.05rem] border transition ${
                     isActive
-                      ? "bg-[#c9a45c]/16 text-[#f4efe6] ring-1 ring-[#c9a45c]/20"
-                      : "bg-[#f4efe6]/4 text-[#b8aea3] hover:bg-[#f4efe6]/7 hover:text-[#f4efe6]"
+                      ? "border-[#c9a45c]/28 bg-gradient-to-br from-[#c9a45c]/18 to-[#f4efe6]/6 text-[#f4efe6] shadow-[0_10px_28px_rgba(0,0,0,0.20)]"
+                      : "border-[#f4efe6]/7 bg-[#f4efe6]/[0.035] text-[#b8aea3] hover:border-[#c9a45c]/18 hover:bg-[#f4efe6]/[0.065] hover:text-[#f4efe6]"
                   }`}
                 >
                   <button
                     type="button"
                     title={conversation.title}
                     onClick={() => void openConversation(conversation.id)}
-                    className="min-w-0 flex-1 px-3 py-2.5 text-left"
+                    className="min-w-0 flex-1 px-3 py-3 text-left"
                   >
-                    <span className="block truncate text-xs font-bold leading-5">
+                    <span className="block truncate text-[13px] font-black leading-5">
                       {conversation.title}
                     </span>
 
                     {conversation.chat_mode && (
-                      <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[0.08em] text-[#756b63]">
+                      <span className="mt-1 block text-[9px] font-black uppercase tracking-[0.10em] text-[#8f8378]">
                         {conversation.chat_mode === "living"
                           ? "ცოცხალი"
                           : "ფაქტობრივი"}
@@ -1185,7 +1185,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                     )}
                   </button>
 
-                  <span className="hidden shrink-0 pr-1 text-[10px] text-[#756b63] group-hover:hidden xl:block">
+                  <span className="hidden shrink-0 pr-1 text-[10px] text-[#8f8378] group-hover:hidden xl:block">
                     {formatSavedConversationDate(conversation.updated_at)}
                   </span>
 
@@ -1197,7 +1197,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                       event.stopPropagation();
                       requestDeleteConversation(conversation);
                     }}
-                    className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#756b63] opacity-0 transition hover:bg-red-500/12 hover:text-red-200 group-hover:opacity-100"
+                    className="mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#8f8378] opacity-100 transition hover:bg-red-500/12 hover:text-red-200 lg:opacity-0 lg:group-hover:opacity-100"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -1219,23 +1219,33 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             type="button"
             aria-label="საუბრების დახურვა"
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#050303]/78 backdrop-blur-md"
           />
 
-          <aside className="relative z-10 flex h-full w-[86vw] max-w-[340px] flex-col overflow-hidden border-r border-[#f4efe6]/10 bg-[#120d0d] p-3 shadow-2xl">
-            <div className="mb-3 flex shrink-0 items-center justify-between rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-2">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#d8c08a]">
-                საუბრები
-              </p>
+          <aside className="absolute bottom-3 left-3 top-3 z-10 flex w-[calc(100vw-24px)] max-w-[370px] flex-col overflow-hidden rounded-[2rem] border border-[#f4efe6]/12 bg-[radial-gradient(circle_at_22%_0%,rgba(201,164,92,0.18),transparent_35%),linear-gradient(180deg,rgba(23,16,16,0.98),rgba(12,8,8,0.98))] p-3 shadow-[0_30px_90px_rgba(0,0,0,0.62)]">
+            <div className="mb-3 shrink-0 overflow-hidden rounded-[1.55rem] border border-[#f4efe6]/10 bg-[#f4efe6]/[0.055] p-3 shadow-[inset_0_1px_0_rgba(244,239,230,0.07)]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#c9a45c]">
+                    Echo Georgia
+                  </p>
+                  <p className="mt-1 text-lg font-black tracking-[-0.04em] text-[#f4efe6]">
+                    საუბრები
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-[#8f8378]">
+                    გახსენი ძველი დიალოგი ან დაიწყე ახალი.
+                  </p>
+                </div>
 
-              <button
-                type="button"
-                aria-label="დახურვა"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="grid h-8 w-8 place-items-center rounded-full border border-[#f4efe6]/10 text-[#f4efe6] transition hover:bg-[#f4efe6]/10"
-              >
-                <X size={15} />
-              </button>
+                <button
+                  type="button"
+                  aria-label="დახურვა"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b]/80 text-[#f4efe6] shadow-inner transition hover:bg-[#f4efe6]/10 active:scale-95"
+                >
+                  <X size={17} />
+                </button>
+              </div>
             </div>
 
             {renderSidebarContent()}
@@ -1243,7 +1253,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         </div>
       )}
 
-      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[#120d0d]/78 p-3 backdrop-blur-xl lg:flex">
+      <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-[1.8rem] border border-[#f4efe6]/10 bg-[radial-gradient(circle_at_20%_0%,rgba(201,164,92,0.10),transparent_32%),rgba(18,13,13,0.78)] p-3 shadow-[inset_0_1px_0_rgba(244,239,230,0.04)] backdrop-blur-xl lg:flex">
         {renderSidebarContent()}
       </aside>
 
@@ -1254,7 +1264,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(true)}
-                className="grid h-9 w-9 place-items-center rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 text-[#f4efe6] transition hover:bg-[#f4efe6]/10 lg:hidden"
+                className="grid h-10 w-10 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/12 text-[#d8c08a] shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition hover:bg-[#c9a45c]/18 active:scale-95 lg:hidden"
                 aria-label="საუბრები"
               >
                 <Menu size={17} />
