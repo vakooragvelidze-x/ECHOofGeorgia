@@ -30,7 +30,11 @@ export function shouldRunAnswerCritic(plan: AnswerPlan) {
     return false;
   }
 
-  if (plan.intent === "casual") {
+  if (
+    plan.intent === "casual" ||
+    plan.intent === "factual_simple" ||
+    plan.intent === "emotional"
+  ) {
     return false;
   }
 

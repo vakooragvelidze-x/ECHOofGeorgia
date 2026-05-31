@@ -31,6 +31,51 @@ const FREE_DAILY_LIMIT = 15;
 const MAX_USER_MESSAGE_LENGTH = 1200;
 const MAX_CONTEXT_CHARACTERS = 6000;
 
+
+function normalizeTextForIntent(text: string) {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isFastCasualMessage(text: string) {
+  const normalized = normalizeTextForIntent(text);
+
+  if (normalized.length > 80) {
+    return false;
+  }
+
+  const casualPatterns = [
+    "გამარჯობა",
+    "სალამი",
+    "როგორ ხარ",
+    "როგორხარ",
+    "რა ხდება",
+    "რას შვები",
+    "hello",
+    "hi",
+    "hey",
+    "how are you",
+  ];
+
+  return casualPatterns.some((pattern) => normalized.includes(pattern));
+}
+
+function createFastCasualAnswerPlan() {
+  return {
+    intent: "casual" as const,
+    hiddenUserNeed: "The user is making a casual opening or small-talk message.",
+    answerDepth: "tiny" as const,
+    characterIntensity: 1 as const,
+    answerShape: "brief_reply_question_back" as const,
+    shouldUseRag: false,
+    shouldUseWeb: false,
+    tone: "natural, brief, human, lightly character-colored",
+    avoid: ["lecture", "long answer", "national theme", "overacting"],
+    characterMove:
+      "Reply briefly and naturally. Do not lecture. Ask a small question back if it fits.",
+  };
+}
+
+
 function formatConversation(messages: ChatMessage[]) {
   return messages
     .map((message) => {
@@ -39,6 +84,7 @@ function formatConversation(messages: ChatMessage[]) {
     })
     .join("\n\n");
 }
+
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -366,20 +412,27 @@ export async function POST(request: Request) {
 
     const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
 
-    let answerPlan = fallbackAnswerPlan;
+    const latestQuestionForPlanning = latestUserMessage?.text?.trim() ?? "";
+const shouldUseFastCasualPath = isFastCasualMessage(latestQuestionForPlanning);
 
-    try {
-      answerPlan = await createAnswerPlan({
-        apiKey,
-        figureNameKa: figure.nameKa,
-        figureNameEn: figure.nameEn,
-        chatMode,
-        webSearchEnabled,
-        messages: safeMessages,
-      });
-    } catch (error) {
-      console.warn("Answer planner failed, using fallback plan:", error);
-    }
+let answerPlan = shouldUseFastCasualPath
+  ? createFastCasualAnswerPlan()
+  : fallbackAnswerPlan;
+
+if (!shouldUseFastCasualPath) {
+  try {
+    answerPlan = await createAnswerPlan({
+      apiKey,
+      figureNameKa: figure.nameKa,
+      figureNameEn: figure.nameEn,
+      chatMode,
+      webSearchEnabled,
+      messages: safeMessages,
+    });
+  } catch (error) {
+    console.warn("Answer planner failed, using fallback plan:", error);
+  }
+}
 
     let retrievedKnowledgeBlock =
       "No internal knowledge retrieval was performed for this answer.";

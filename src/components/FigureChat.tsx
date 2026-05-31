@@ -68,6 +68,12 @@ type StableAssistantAvatarProps = {
   alt: string;
 };
 
+type ThinkingCues = {
+  immediate: string;
+  delayed: string;
+  longWait: string;
+};
+
 const GUEST_FREE_LIMIT = 5;
 const GUEST_USAGE_KEY = "echo_georgia_guest_questions_used";
 
@@ -177,6 +183,126 @@ function pickSuggestedQuestions(questions: string[], figureSlug: string) {
   return selected;
 }
 
+function getThinkingCues(message: string, figureSlug: string): ThinkingCues {
+  const normalized = message.trim().toLowerCase();
+
+  const isCasual =
+    normalized.includes("როგორ ხარ") ||
+    normalized.includes("როგორხარ") ||
+    normalized.includes("გამარჯობა") ||
+    normalized.includes("სალამი") ||
+    normalized.includes("რა ხდება") ||
+    normalized.includes("რას შვები") ||
+    normalized.includes("hello") ||
+    normalized.includes("hi") ||
+    normalized.includes("hey");
+
+  const isEmotional =
+    normalized.includes("ცუდ") ||
+    normalized.includes("მეშინ") ||
+    normalized.includes("დავიღალე") ||
+    normalized.includes("მიჭირს") ||
+    normalized.includes("ვერ ვგრძნობ") ||
+    normalized.includes("არ ვიცი რა ვქნა") ||
+    normalized.includes("დეპრეს") ||
+    normalized.includes("მტკივა");
+
+  const isDeep =
+    normalized.includes("რატომ") ||
+    normalized.includes("ამიხსენი") ||
+    normalized.includes("გაანალიზე") ||
+    normalized.includes("რას ფიქრობ") ||
+    normalized.includes("რა აზრის ხარ") ||
+    normalized.includes("ფილოსოფ") ||
+    normalized.length > 180;
+
+  const isFactual =
+    normalized.includes("ვინ") ||
+    normalized.includes("როდის") ||
+    normalized.includes("სად") ||
+    normalized.includes("რამდენ") ||
+    normalized.includes("მართალია") ||
+    normalized.includes("ფაქტი");
+
+  if (isCasual) {
+    return {
+      immediate: "გისმენ",
+      delayed: "მოკლედ გიპასუხებ",
+      longWait: "აქ ვარ",
+    };
+  }
+
+  if (isEmotional) {
+    return {
+      immediate: "გისმენ",
+      delayed: "მესმის, ამას ფრთხილად ვუპასუხებ",
+      longWait: "სწორ სიტყვას ვეძებ",
+    };
+  }
+
+  if (isFactual) {
+    return {
+      immediate: "ვფიქრობ",
+      delayed: "ვამოწმებ, რომ სწორად გიპასუხო",
+      longWait: "ფაქტებს ვალაგებ",
+    };
+  }
+
+  if (isDeep) {
+    return {
+      immediate: "ვფიქრობ",
+      delayed: "კარგი კითხვაა, პასუხს ვალაგებ",
+      longWait: "მთავარს ვეძებ",
+    };
+  }
+
+  if (figureSlug === "ilia-chavchavadze") {
+    return {
+      immediate: "ვფიქრობ",
+      delayed: "პირდაპირ გიპასუხებ",
+      longWait: "სიტყვას ვარჩევ",
+    };
+  }
+
+  if (figureSlug === "tamar-mepe") {
+    return {
+      immediate: "ვფიქრობ",
+      delayed: "სიტყვას ვწონი",
+      longWait: "ფრთხილად გიპასუხებ",
+    };
+  }
+
+  if (figureSlug === "vazha-pshavela") {
+    return {
+      immediate: "ვფიქრობ",
+      delayed: "პირდაპირ გეტყვი",
+      longWait: "ღრმად ვფიქრობ",
+    };
+  }
+
+  if (figureSlug === "shota-rustaveli") {
+    return {
+      immediate: "ვფიქრობ",
+      delayed: "სიტყვას ვეძებ",
+      longWait: "აზრს ვალაგებ",
+    };
+  }
+
+  if (figureSlug === "niko-pirosmani") {
+    return {
+      immediate: "გისმენ",
+      delayed: "ნელა გიპასუხებ",
+      longWait: "სწორ ფერს ვეძებ",
+    };
+  }
+
+  return {
+    immediate: "ვფიქრობ",
+    delayed: "პასუხს ვალაგებ",
+    longWait: "მალე გიპასუხებ",
+  };
+}
+
 export default function FigureChat({ figure }: { figure: Figure }) {
   const initialAssistantMessage: Message = {
     id: 1,
@@ -219,6 +345,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef<number | null>(null);
   const slowThinkingTimerRef = useRef<number | null>(null);
+  const longThinkingTimerRef = useRef<number | null>(null);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -464,6 +591,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       slowThinkingTimerRef.current = null;
     }
 
+    if (longThinkingTimerRef.current) {
+      window.clearTimeout(longThinkingTimerRef.current);
+      longThinkingTimerRef.current = null;
+    }
+
     setSlowThinkingText(null);
   }
 
@@ -638,15 +770,19 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setTypingMessageId(assistantId);
     clearSlowThinkingTimer();
 
+    const thinkingCues = getThinkingCues(finalMessage, figure.slug);
+
+    setSlowThinkingText(thinkingCues.immediate);
+
     slowThinkingTimerRef.current = window.setTimeout(() => {
-      if (activeRequestIdRef.current === requestId) {
-        setSlowThinkingText(
-          figure.slug === "vazha-pshavela"
-            ? "ღრმად ვფიქრობ"
-            : "პასუხს ვალაგებ"
-        );
-      }
-    }, 8000);
+      if (activeRequestIdRef.current !== requestId) return;
+      setSlowThinkingText(thinkingCues.delayed);
+    }, 1800);
+
+    longThinkingTimerRef.current = window.setTimeout(() => {
+      if (activeRequestIdRef.current !== requestId) return;
+      setSlowThinkingText(thinkingCues.longWait);
+    }, 5200);
 
     let createdConversationIdInRequest: string | null = null;
 
@@ -1043,7 +1179,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   )}
 
                   <div
-                  className={`max-w-[82%] min-w-0 whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-xs leading-6 [overflow-wrap:anywhere] sm:text-sm sm:leading-7 ${                      isUser
+                    className={`max-w-[82%] min-w-0 whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-xs leading-6 [overflow-wrap:anywhere] sm:text-sm sm:leading-7 ${
+                      isUser
                         ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
                         : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                     }`}
@@ -1199,7 +1336,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                       : "დაწერე კითხვა..."
                 }
                 disabled={isOpeningConversation}
-className="chat-input-textarea min-h-[46px] max-h-[220px] min-w-0 flex-1 resize-none overflow-hidden rounded-[1.4rem] border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs leading-5 text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm sm:leading-6"              />
+                className="chat-input-textarea min-h-[46px] max-h-[220px] min-w-0 flex-1 resize-none overflow-hidden rounded-[1.4rem] border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs leading-5 text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm sm:leading-6"
+              />
 
               <button
                 type="button"
