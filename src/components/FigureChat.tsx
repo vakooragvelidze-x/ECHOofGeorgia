@@ -349,23 +349,36 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   );
 
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const shouldAutoScrollRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef<number | null>(null);
   const slowThinkingTimerRef = useRef<number | null>(null);
   const longThinkingTimerRef = useRef<number | null>(null);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((force = false) => {
     requestAnimationFrame(() => {
       const element = chatRef.current;
       if (!element) return;
+
+      if (!force && !shouldAutoScrollRef.current) return;
 
       element.scrollTop = element.scrollHeight;
     });
   }, []);
 
+  function handleChatScroll() {
+    const element = chatRef.current;
+    if (!element) return;
+
+    const distanceFromBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  }
+
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(false);
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
 
   useEffect(() => {
@@ -586,6 +599,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           ? [initialAssistantMessage, ...loadedMessages]
           : [initialAssistantMessage]
       );
+      shouldAutoScrollRef.current = true;
+      scrollToBottom(true);
     } catch (error) {
       console.error("Open conversation error:", error);
     } finally {
@@ -669,6 +684,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setIsMobileSidebarOpen(false);
     setActiveConversationId(null);
     setMessages([initialAssistantMessage]);
+    shouldAutoScrollRef.current = true;
+    scrollToBottom(true);
   }
 
   async function startNewSavedChat() {
@@ -678,6 +695,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setIsModeMenuOpen(false);
     setIsMobileSidebarOpen(false);
     setMessages([initialAssistantMessage]);
+    shouldAutoScrollRef.current = true;
+    scrollToBottom(true);
 
     if (authStatus !== "user") {
       setActiveConversationId(null);
@@ -841,6 +860,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     const updatedMessages = [...messages, userMessage];
 
     setMessages([...updatedMessages, assistantMessage]);
+    shouldAutoScrollRef.current = true;
+    scrollToBottom(true);
     setInput("");
     setIsLoading(true);
     setTypingMessageId(assistantId);
@@ -1299,6 +1320,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
         <div
           ref={chatRef}
+          onScroll={handleChatScroll}
           className="chat-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7"
         >
           <div className="mx-auto max-w-3xl space-y-4">
