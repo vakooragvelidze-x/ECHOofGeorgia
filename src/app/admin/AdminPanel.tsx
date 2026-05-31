@@ -1,10 +1,10 @@
 "use client";
-"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  BookOpen,
   Crown,
   RefreshCw,
   ShieldCheck,
@@ -35,6 +35,7 @@ const planStyles: Record<Plan, string> = {
   premium: "border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#d8c08a]",
   unlimited: "border-emerald-400/25 bg-emerald-500/10 text-emerald-200",
 };
+
 function formatActivityDate(value: string | null) {
   if (!value) return "—";
 
@@ -52,7 +53,7 @@ function formatActivityDate(value: string | null) {
   });
 }
 
-export default function AdminPage() {
+export default function AdminPanel() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -129,15 +130,15 @@ export default function AdminPage() {
   }, []);
 
   const totalUsers = users.length;
-  const unlimitedUsers = users.filter((user) => user.plan === "unlimited")
-    .length;
-  const premiumUsers = users.filter((user) => user.plan === "premium").length;
+  const unlimitedUsers = users.filter(
+    (user) => user.plan === "unlimited"
+  ).length;
   const freeUsers = users.filter((user) => user.plan === "free").length;
 
   const totalQuestionsToday = users.reduce(
-  (sum, user) => sum + user.usage_today,
-  0
-);
+    (sum, user) => sum + user.usage_today,
+    0
+  );
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0e0b0b] px-5 py-8 text-[#f4efe6]">
@@ -154,15 +155,28 @@ export default function AdminPage() {
             მთავარზე დაბრუნება
           </Link>
 
-          <button
-            type="button"
-            onClick={() => void loadUsers()}
-            disabled={isLoading}
-            className="inline-flex items-center gap-2 rounded-full border border-[#f4efe6]/10 bg-[#171010]/80 px-4 py-2 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/8 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
-            განახლება
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/knowledge"
+              className="inline-flex items-center gap-2 rounded-full bg-[#c9a45c] px-4 py-2 text-sm font-black text-[#140d0d] transition hover:bg-[#f4efe6]"
+            >
+              <BookOpen size={15} />
+              ცოდნის მართვა
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => void loadUsers()}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-full border border-[#f4efe6]/10 bg-[#171010]/80 px-4 py-2 text-sm font-bold text-[#f4efe6] transition hover:bg-[#f4efe6]/8 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                size={15}
+                className={isLoading ? "animate-spin" : ""}
+              />
+              განახლება
+            </button>
+          </div>
         </div>
 
         <div className="rounded-[2rem] border border-[#f4efe6]/10 bg-[#171010]/80 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
@@ -186,9 +200,9 @@ export default function AdminPage() {
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard label="Users" value={totalUsers} />
-<StatCard label="Today" value={totalQuestionsToday} />
-<StatCard label="Free" value={freeUsers} />
-<StatCard label="Unlimited" value={unlimitedUsers} />
+              <StatCard label="Today" value={totalQuestionsToday} />
+              <StatCard label="Free" value={freeUsers} />
+              <StatCard label="Unlimited" value={unlimitedUsers} />
             </div>
           </div>
 
@@ -200,13 +214,13 @@ export default function AdminPage() {
 
           <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-[#f4efe6]/10">
             <div className="hidden grid-cols-[1.5fr_1fr_90px_110px_120px_310px] gap-4 border-b border-[#f4efe6]/10 bg-[#0e0b0b]/80 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-[#756b63] lg:grid">
-  <div>მომხმარებელი</div>
-  <div>სახელი</div>
-  <div>Today</div>
-  <div>Total</div>
-  <div>როლი</div>
-  <div>გეგმა</div>
-</div>
+              <div>მომხმარებელი</div>
+              <div>სახელი</div>
+              <div>Today</div>
+              <div>Total</div>
+              <div>როლი</div>
+              <div>გეგმა</div>
+            </div>
 
             {isLoading ? (
               <div className="px-5 py-12 text-center text-sm text-[#b8aea3]">
@@ -221,7 +235,8 @@ export default function AdminPage() {
                 {users.map((user) => (
                   <div
                     key={user.id}
-className="grid gap-4 px-5 py-4 lg:grid-cols-[1.5fr_1fr_90px_110px_120px_310px] lg:items-center"                  >
+                    className="grid gap-4 px-5 py-4 lg:grid-cols-[1.5fr_1fr_90px_110px_120px_310px] lg:items-center"
+                  >
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
                         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#c9a45c]">
@@ -244,23 +259,23 @@ className="grid gap-4 px-5 py-4 lg:grid-cols-[1.5fr_1fr_90px_110px_120px_310px] 
                     </div>
 
                     <div className="text-sm text-[#d9d0c5]">
-                      <span className="lg:hidden text-[#756b63]">Name: </span>
+                      <span className="text-[#756b63] lg:hidden">Name: </span>
                       {user.full_name || "—"}
                     </div>
 
                     <div className="text-sm font-black text-[#f4efe6]">
-  <span className="lg:hidden text-[#756b63]">Today: </span>
-  {user.usage_today}
-</div>
+                      <span className="text-[#756b63] lg:hidden">Today: </span>
+                      {user.usage_today}
+                    </div>
 
-<div className="text-sm text-[#b8aea3]">
-  <span className="lg:hidden text-[#756b63]">Total: </span>
-  {user.usage_total}
-  <p className="mt-1 text-[11px] text-[#756b63]">
-    {formatActivityDate(user.last_activity_at)}
-  </p>
-</div>
-                   
+                    <div className="text-sm text-[#b8aea3]">
+                      <span className="text-[#756b63] lg:hidden">Total: </span>
+                      {user.usage_total}
+                      <p className="mt-1 text-[11px] text-[#756b63]">
+                        {formatActivityDate(user.last_activity_at)}
+                      </p>
+                    </div>
+
                     <div>
                       <span
                         className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${

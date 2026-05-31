@@ -447,7 +447,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
   }
 
-  async function createConversation(firstMessage: string) {
+  async function createConversation(firstMessage = "") {
     const response = await fetch("/api/conversations", {
       method: "POST",
       headers: {
@@ -484,6 +484,46 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     });
 
     return data.conversation.id;
+  }
+
+  async function updateConversationTitleFromFirstMessage(
+    conversationId: string,
+    firstMessage: string
+  ) {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          firstMessage,
+        }),
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as {
+        conversation?: SavedConversation;
+      };
+
+      if (!data.conversation) {
+        return;
+      }
+
+      setSavedConversations((current) => {
+        const withoutUpdated = current.filter(
+          (conversation) => conversation.id !== data.conversation?.id
+        );
+
+        return [data.conversation!, ...withoutUpdated];
+      });
+    } catch (error) {
+      console.warn("Conversation title update warning:", error);
+    }
   }
 
   async function openConversation(conversationId: string) {
@@ -619,6 +659,31 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setIsModeMenuOpen(false);
     setActiveConversationId(null);
     setMessages([initialAssistantMessage]);
+  }
+
+  async function startNewSavedChat() {
+    stopGeneration();
+    setInput("");
+    setLimitNotice(null);
+    setIsModeMenuOpen(false);
+    setMessages([initialAssistantMessage]);
+
+    if (authStatus !== "user") {
+      setActiveConversationId(null);
+      return;
+    }
+
+    setIsOpeningConversation(true);
+
+    try {
+      await createConversation("");
+      void loadConversations();
+    } catch (error) {
+      console.error("Create new saved conversation error:", error);
+      setActiveConversationId(null);
+    } finally {
+      setIsOpeningConversation(false);
+    }
   }
 
   function showGuestLimitNotice() {
@@ -792,6 +857,16 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       if (authStatus === "user" && !conversationIdForRequest) {
         conversationIdForRequest = await createConversation(finalMessage);
         createdConversationIdInRequest = conversationIdForRequest;
+      } else if (
+        authStatus === "user" &&
+        conversationIdForRequest &&
+        messages.length === 1 &&
+        messages[0]?.role === "assistant"
+      ) {
+        void updateConversationTitleFromFirstMessage(
+          conversationIdForRequest,
+          finalMessage
+        );
       }
 
       const response = await fetch("/api/chat", {
@@ -987,16 +1062,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         <button
           type="button"
           onClick={() => {
-            if (activeConversationId !== null) {
-              startNewChat();
-            }
+            void startNewSavedChat();
           }}
-          disabled={activeConversationId === null}
-          className={`mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition ${
-            activeConversationId === null
-              ? "border-[#c9a45c]/30 bg-[#c9a45c]/15 text-[#f4efe6] disabled:cursor-default"
-              : "border-[#f4efe6]/10 bg-[#f4efe6]/5 text-[#f4efe6] hover:bg-[#f4efe6]/10"
-          }`}
+          disabled={isLoading || isOpeningConversation || authStatus === "loading"}
+          className="mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-4 py-3 text-sm font-black text-[#f4efe6] transition hover:bg-[#f4efe6]/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus size={15} />
           ახალი საუბარი
@@ -1043,7 +1112,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         <div className="min-h-0 flex-1">
           <div className="mb-2 flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#756b63]">
             <Clock3 size={13} />
-            ჩატები
+            საუბრები
           </div>
 
           <div className="chat-scroll-area h-[calc(100%-24px)] space-y-1.5 overflow-y-auto pr-1">
@@ -1055,13 +1124,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
             {authStatus === "guest" && (
               <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
-                შესვლის შემდეგ ჩატები აქ გამოჩნდება.
+                შესვლის შემდეგ საუბრები აქ გამოჩნდება.
               </div>
             )}
 
             {authStatus === "user" && isLoadingConversations && (
               <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
-                ჩატები იტვირთება...
+                საუბრები იტვირთება...
               </div>
             )}
 
@@ -1069,7 +1138,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               !isLoadingConversations &&
               savedConversations.length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#f4efe6]/10 px-3 py-3 text-[11px] leading-5 text-[#756b63]">
-                  ჯერ შენახული ჩატი არ გაქვს.
+                  ჯერ შენახული საუბარი არ გაქვს.
                 </div>
               )}
 
@@ -1110,7 +1179,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
                   <button
                     type="button"
-                    title="ჩატის წაშლა"
+                    title="საუბრის წაშლა"
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
@@ -1362,10 +1431,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       {deleteTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 px-5 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[1.6rem] border border-[#f4efe6]/10 bg-[#171010] p-5 shadow-2xl">
-            <p className="text-lg font-black text-[#f4efe6]">ჩატის წაშლა?</p>
+            <p className="text-lg font-black text-[#f4efe6]">საუბრის წაშლა?</p>
 
             <p className="mt-3 text-sm leading-6 text-[#b8aea3]">
-              ეს ჩატი და მისი შეტყობინებები წაიშლება. ამ მოქმედების დაბრუნება
+              ეს საუბარი და მისი შეტყობინებები წაიშლება. ამ მოქმედების დაბრუნება
               ვერ მოხერხდება.
             </p>
 

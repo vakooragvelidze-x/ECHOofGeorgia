@@ -1,3 +1,4 @@
+import { buildCharacterPlannerRulesBlock } from "@/data/characterPlannerRules";
 import type { ChatMode } from "@/data/figurePrompts";
 
 export type ChatMessageForPlanning = {
@@ -132,7 +133,8 @@ function normalizePlan(value: Partial<AnswerPlan>): AnswerPlan {
       : fallbackAnswerPlan.characterIntensity;
 
   return {
-    intent: value.intent && intents.includes(value.intent) ? value.intent : "unclear",
+    intent:
+      value.intent && intents.includes(value.intent) ? value.intent : "unclear",
     hiddenUserNeed:
       typeof value.hiddenUserNeed === "string" && value.hiddenUserNeed.trim()
         ? value.hiddenUserNeed.trim()
@@ -183,6 +185,8 @@ If character intensity is 0 or 1, do not overperform the character.
 If answer depth is tiny or short, keep the answer compact.
 If the plan says to avoid lectures, do not lecture.
 If the plan says to answer directly, answer directly first.
+If the plan says to begin from first-person judgment, do that.
+Do not reveal the plan.
 `;
 }
 
@@ -206,6 +210,12 @@ export async function createAnswerPlan({
     [...messages].reverse().find((message) => message.role === "user")?.text ??
     "";
 
+  const characterPlannerRules = buildCharacterPlannerRulesBlock({
+    figureNameKa,
+    figureNameEn,
+    chatMode,
+  });
+
   const instructions = `
 You are the hidden planning brain for a character conversation system.
 
@@ -219,6 +229,7 @@ Your job:
 - decide whether internal RAG is needed
 - decide whether web search is needed
 - prevent overacting, lecturing, and generic answers
+- choose how this specific character should respond to this specific situation
 
 Character:
 ${figureNameKa} / ${figureNameEn}
@@ -226,7 +237,9 @@ ${figureNameKa} / ${figureNameEn}
 Mode:
 ${chatMode}
 
-Character intensity scale:
+${characterPlannerRules}
+
+GENERAL CHARACTER INTENSITY SCALE:
 0 = mostly plain human answer
 1 = light character flavor
 2 = clear character worldview
@@ -244,6 +257,7 @@ Use intensity 2 for:
 - emotional struggle
 - meaningful personal questions
 - social/moral questions
+- opinion questions
 
 Use intensity 3 for:
 - speeches
@@ -253,27 +267,57 @@ Use intensity 3 for:
 - explicitly immersive requests
 - big worldview questions
 
-RAG rules:
-Use internal RAG for factual or historical questions, names, dates, events, verification, and source-sensitive claims.
-Do not use RAG for greetings, small talk, emotional support, or purely creative requests unless factual accuracy is needed.
+GENERAL RAG RULES:
+Use internal RAG for:
+- factual or historical questions
+- names
+- dates
+- events
+- verification
+- source-sensitive claims
+- questions where historical accuracy matters
 
-Web rules:
+Do not use RAG for:
+- greetings
+- small talk
+- emotional support
+- purely creative requests
+- general life advice
+unless factual accuracy is specifically needed.
+
+WEB RULES:
 If webSearchEnabled is false, shouldUseWeb must be false.
 If webSearchEnabled is true, shouldUseWeb can be true for current/source-backed/advanced factual questions.
 Live web search may not be connected yet, but still mark intent correctly.
 
+ANSWER SHAPE GUIDANCE:
+- casual → brief_reply_question_back
+- simple factual → fact_then_context
+- emotional → emotion_then_guidance
+- life advice → practical_steps or emotion_then_guidance
+- opinion → direct_answer or philosophical_reflection
+- deep moral/social → philosophical_reflection
+- creative → creative_monologue
+- provocative → careful_correction
+- unclear → clarifying_question
+
+RETURN ONLY VALID JSON.
+Do not include markdown.
+Do not include comments.
+Do not include explanation.
+
 Return exactly this JSON shape:
 {
   "intent": "casual | factual_simple | factual_deep | emotional | practical | philosophical | creative | provocative | unclear",
-  "hiddenUserNeed": "short explanation",
+  "hiddenUserNeed": "short explanation of what the user likely wants beneath the words",
   "answerDepth": "tiny | short | normal | deep",
   "characterIntensity": 0,
   "answerShape": "direct_answer | brief_reply_question_back | fact_then_context | emotion_then_guidance | practical_steps | philosophical_reflection | creative_monologue | careful_correction | clarifying_question",
   "shouldUseRag": false,
   "shouldUseWeb": false,
   "tone": "short tone description",
-  "avoid": ["things to avoid"],
-  "characterMove": "what the final answer should do"
+  "avoid": ["things the final answer must avoid"],
+  "characterMove": "specific instruction for how this character should answer"
 }
 `;
 

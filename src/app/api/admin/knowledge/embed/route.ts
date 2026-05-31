@@ -49,6 +49,28 @@ export async function POST(request: Request) {
       );
     }
 
+    const { error: sourceError } = await supabase
+  .from("knowledge_sources")
+  .upsert(
+    {
+      id: sourceId,
+      figure_slug: figureSlug,
+      title,
+    },
+    {
+      onConflict: "id",
+    }
+  );
+
+    if (sourceError) {
+      return NextResponse.json(
+        {
+          error: `Knowledge source creation failed: ${sourceError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
     const embedding = await createEmbedding(`${title}\n\n${content}`);
 
     const { data, error: insertError } = await supabase
@@ -60,7 +82,7 @@ export async function POST(request: Request) {
         content,
         embedding,
         metadata: {
-          inserted_by: "admin_embed_route",
+          inserted_by: "admin_knowledge_panel",
         },
       })
       .select("id, source_id, figure_slug, title, content, created_at")
