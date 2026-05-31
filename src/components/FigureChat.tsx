@@ -90,8 +90,10 @@ const chatModeShortLabels: Record<ChatMode, string> = {
 };
 
 const chatModeDescriptions: Record<ChatMode, string> = {
-  factual: "ისტორიულად ფრთხილი პასუხები — ფაქტებზე, ცნობილ წყაროებზე და დადასტურებულ ინფორმაციაზე დაყრდნობით.",
-  living: "თავისუფალი საუბარი პერსონაჟის ხმით — უფრო ემოციური, აზრიანი და ინტერპრეტაციული პასუხებისთვის.",
+  factual:
+    "ისტორიულად ფრთხილი პასუხები — ფაქტებზე, ცნობილ წყაროებზე და დადასტურებულ ინფორმაციაზე დაყრდნობით.",
+  living:
+    "თავისუფალი საუბარი პერსონაჟის ხმით — უფრო ემოციური, აზრიანი და ინტერპრეტაციული პასუხებისთვის.",
 };
 
 const StableAssistantAvatar = memo(function StableAssistantAvatar({
@@ -310,8 +312,6 @@ function getThinkingCues(message: string, figureSlug: string): ThinkingCues {
   };
 }
 
-
-
 function getHowToUseSlides() {
   return [
     {
@@ -391,7 +391,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isOpeningConversation, setIsOpeningConversation] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SavedConversation | null>(
-    null
+    null,
   );
 
   const chatRef = useRef<HTMLDivElement | null>(null);
@@ -436,7 +436,9 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   }, [input]);
 
   useEffect(() => {
-    setSuggestedQuestions(pickSuggestedQuestions(figure.questions, figure.slug));
+    setSuggestedQuestions(
+      pickSuggestedQuestions(figure.questions, figure.slug),
+    );
   }, [figure.questions, figure.slug]);
 
   useEffect(() => {
@@ -516,7 +518,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       };
 
       const currentFigureConversations = (data.conversations ?? []).filter(
-        (conversation) => conversation.figure_slug === figure.slug
+        (conversation) => conversation.figure_slug === figure.slug,
       );
 
       setSavedConversations(currentFigureConversations);
@@ -558,7 +560,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
     setSavedConversations((current) => {
       const withoutDuplicate = current.filter(
-        (conversation) => conversation.id !== data.conversation?.id
+        (conversation) => conversation.id !== data.conversation?.id,
       );
 
       return [data.conversation!, ...withoutDuplicate];
@@ -569,7 +571,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
   async function updateConversationTitleFromFirstMessage(
     conversationId: string,
-    firstMessage: string
+    firstMessage: string,
   ) {
     try {
       const response = await fetch(`/api/conversations/${conversationId}`, {
@@ -597,7 +599,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
       setSavedConversations((current) => {
         const withoutUpdated = current.filter(
-          (conversation) => conversation.id !== data.conversation?.id
+          (conversation) => conversation.id !== data.conversation?.id,
         );
 
         return [data.conversation!, ...withoutUpdated];
@@ -617,7 +619,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     setIsMobileSidebarOpen(false);
 
     const openedConversation = savedConversations.find(
-      (conversation) => conversation.id === conversationId
+      (conversation) => conversation.id === conversationId,
     );
 
     if (
@@ -633,7 +635,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
         {
           method: "GET",
           cache: "no-store",
-        }
+        },
       );
 
       if (!response.ok) {
@@ -649,7 +651,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           id: Date.now() + index,
           role: message.role,
           text: message.content,
-        })
+        }),
       );
 
       setActiveConversationId(conversationId);
@@ -657,7 +659,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       setMessages(
         loadedMessages.length > 0
           ? [initialAssistantMessage, ...loadedMessages]
-          : [initialAssistantMessage]
+          : [initialAssistantMessage],
       );
       shouldAutoScrollRef.current = true;
       scrollToBottom(true);
@@ -670,7 +672,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
   async function deleteConversationById(
     conversationId: string,
-    shouldResetActive = true
+    shouldResetActive = true,
   ) {
     const response = await fetch(`/api/conversations/${conversationId}`, {
       method: "DELETE",
@@ -682,7 +684,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
 
     setSavedConversations((current) =>
-      current.filter((conversation) => conversation.id !== conversationId)
+      current.filter((conversation) => conversation.id !== conversationId),
     );
 
     if (shouldResetActive && activeConversationId === conversationId) {
@@ -798,8 +800,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       {
         id: Date.now(),
         role: "assistant",
-        text:
-          "საცდელი ლიმიტი ამოიწურა. შექმენი ანგარიში, რომ მიიღო 15 კითხვა დღეში და გააგრძელო საუბარი.",
+        text: "საცდელი ლიმიტი ამოიწურა. შექმენი ანგარიში, რომ მიიღო 15 კითხვა დღეში და გააგრძელო საუბარი.",
       },
     ]);
   }
@@ -817,7 +818,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   function updateStreamingAssistantMessage(
     assistantId: number,
     requestId: number,
-    nextText: string
+    nextText: string,
   ) {
     if (activeRequestIdRef.current !== requestId) return;
 
@@ -828,15 +829,15 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               ...message,
               text: nextText,
             }
-          : message
-      )
+          : message,
+      ),
     );
   }
 
   async function handleErrorResponse(
     response: Response,
     assistantId: number,
-    requestId: number
+    requestId: number,
   ) {
     const errorText = await response.text();
 
@@ -884,7 +885,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     }
 
     throw new Error(
-      payload?.error || errorText || "Failed to generate response."
+      payload?.error || errorText || "Failed to generate response.",
     );
   }
 
@@ -966,7 +967,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       ) {
         void updateConversationTitleFromFirstMessage(
           conversationIdForRequest,
-          finalMessage
+          finalMessage,
         );
       }
 
@@ -1048,7 +1049,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       reader.releaseLock();
 
       if (activeRequestIdRef.current === requestId) {
-        if (createdConversationIdInRequest && streamedText.trim().length === 0) {
+        if (
+          createdConversationIdInRequest &&
+          streamedText.trim().length === 0
+        ) {
           try {
             await deleteConversationById(createdConversationIdInRequest, false);
           } catch (deleteError) {
@@ -1096,7 +1100,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       updateStreamingAssistantMessage(
         assistantId,
         requestId,
-        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე კავშირი და სცადე თავიდან."
+        "პასუხის მიღება ვერ მოხერხდა. გადაამოწმე კავშირი და სცადე თავიდან.",
       );
 
       clearSlowThinkingTimer();
@@ -1159,7 +1163,6 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const howToUseSlides = getHowToUseSlides();
   const activeHowToSlide = howToUseSlides[howToSlideIndex] ?? howToUseSlides[0];
 
-
   function renderSidebarContent() {
     return (
       <>
@@ -1168,7 +1171,9 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           onClick={() => {
             void startNewSavedChat();
           }}
-          disabled={isLoading || isOpeningConversation || authStatus === "loading"}
+          disabled={
+            isLoading || isOpeningConversation || authStatus === "loading"
+          }
           className="mb-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-[1.25rem] border border-[#d8c08a]/25 bg-gradient-to-br from-[#d8c08a] via-[#c9a45c] to-[#8b6b32] px-4 py-3 text-sm font-black text-[#120d0d] shadow-[0_12px_35px_rgba(201,164,92,0.18)] transition hover:scale-[1.01] hover:from-[#f4efe6] hover:to-[#c9a45c] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus size={15} />
@@ -1298,7 +1303,6 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             })}
           </div>
         </div>
-
       </>
     );
   }
@@ -1376,11 +1380,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
 
             <div className="hidden items-center gap-2 sm:flex">
               <div
-  title={chatModeDescriptions[chatMode]}
-  className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-1 text-xs font-bold text-[#b8aea3]"
->
-  {chatModeShortLabels[chatMode]}
-</div>
+                title={chatModeDescriptions[chatMode]}
+                className="rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/5 px-3 py-1 text-xs font-bold text-[#b8aea3]"
+              >
+                {chatModeShortLabels[chatMode]}
+              </div>
 
               <div className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1 text-xs font-bold text-[#d8c08a]">
                 {figure.era}
@@ -1395,7 +1399,6 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           className="chat-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7"
         >
           <div className="mx-auto max-w-3xl space-y-4">
-
             {messages.map((message) => {
               const isUser = message.role === "user";
               const isTyping = typingMessageId === message.id;
@@ -1528,7 +1531,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   title={chatModeDescriptions[chatMode]}
                   className="min-h-[46px] rounded-full border border-[#f4efe6]/10 bg-[#171010] px-3 text-[10px] font-black text-[#d8c08a] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-xs"
                 >
-                 {chatModeShortLabels[chatMode]} ▾
+                  {chatModeShortLabels[chatMode]} ▾
                 </button>
 
                 {isModeMenuOpen && (
@@ -1548,11 +1551,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                         }`}
                       >
                         <span className="block text-xs font-black">
-  {chatModeLabels[mode]}
-</span>
-<span className="mt-1 block text-[10px] leading-4 text-[#8f8378]">
-  {chatModeDescriptions[mode]}
-</span>
+                          {chatModeLabels[mode]}
+                        </span>
+                        <span className="mt-1 block text-[10px] leading-4 text-[#8f8378]">
+                          {chatModeDescriptions[mode]}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1668,11 +1671,11 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                         <span className="h-2.5 w-2.5 rounded-full bg-[#f4efe6]/35" />
                       </div>
                       <span className="rounded-full bg-[#f4efe6]/6 px-2 py-1 text-[9px] font-black text-[#8f8378]">
-                        preview
+                        live preview
                       </span>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 text-left">
                       <div
                         className={`rounded-2xl border p-3 transition ${
                           howToSlideIndex === 0
@@ -1681,10 +1684,17 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <StableAssistantAvatar src={avatarImage} alt={figure.nameKa} />
+                          <StableAssistantAvatar
+                            src={avatarImage}
+                            alt={figure.nameKa}
+                          />
                           <div className="min-w-0">
-                            <div className="h-3 w-28 rounded-full bg-[#f4efe6]/30" />
-                            <div className="mt-2 h-2 w-20 rounded-full bg-[#c9a45c]/35" />
+                            <p className="truncate text-sm font-black text-[#f4efe6]">
+                              {figure.nameKa}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] font-bold text-[#d8c08a]">
+                              {figure.era} · {figure.years}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1696,12 +1706,15 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                             : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
                         }`}
                       >
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#8f8378]">
+                          საუბრის რეჟიმი
+                        </p>
                         <div className="flex flex-wrap gap-2">
-                          <span className="rounded-full border border-[#f4efe6]/10 px-3 py-1.5 text-[10px] font-black text-[#d8c08a]">
+                          <span className="rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b]/55 px-3 py-1.5 text-[10px] font-black text-[#d8c08a]">
                             ფაქტობრივი
                           </span>
                           <span className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1.5 text-[10px] font-black text-[#f4efe6]">
-                            ცოცხალი
+                            ცოცხალი საუბარი
                           </span>
                         </div>
                       </div>
@@ -1713,8 +1726,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                             : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
                         }`}
                       >
-                        <div className="h-10 rounded-full border border-[#f4efe6]/10 bg-[#0b0707] px-4 py-3">
-                          <div className="h-2 w-2/3 rounded-full bg-[#f4efe6]/25" />
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#8f8378]">
+                          კითხვა
+                        </p>
+                        <div className="rounded-[1.1rem] border border-[#f4efe6]/10 bg-[#0b0707] px-4 py-3">
+                          <p className="text-xs font-bold leading-5 text-[#f4efe6]">
+                            რატომ არის ენა მნიშვნელოვანი?
+                          </p>
                         </div>
                       </div>
 
@@ -1726,12 +1744,16 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="grid h-9 w-9 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#d8c08a]">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#d8c08a]">
                             <Menu size={15} />
                           </div>
-                          <div className="space-y-2">
-                            <div className="h-2 w-32 rounded-full bg-[#f4efe6]/25" />
-                            <div className="h-2 w-24 rounded-full bg-[#f4efe6]/12" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-[#f4efe6]">
+                              საუბრები
+                            </p>
+                            <p className="mt-1 truncate text-[11px] font-bold text-[#8f8378]">
+                              გახსენი ძველი დიალოგი ან დაიწყე ახალი
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1743,11 +1765,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                             : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
                         }`}
                       >
-                        <div className="space-y-2">
-                          <div className="h-2 w-full rounded-full bg-[#f4efe6]/20" />
-                          <div className="h-2 w-5/6 rounded-full bg-[#f4efe6]/14" />
-                          <div className="h-2 w-2/3 rounded-full bg-[#c9a45c]/25" />
-                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#c9a45c]">
+                          პასუხის გამოყენება
+                        </p>
+                        <p className="mt-2 text-xs font-bold leading-5 text-[#f4efe6]">
+                          გამოიყენე იდეების გასაგებად, ტექსტის დასაწყობად და
+                          შემდეგი კითხვებისთვის.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1788,7 +1812,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   type="button"
                   onClick={() =>
                     setHowToSlideIndex((index) =>
-                      Math.min(howToUseSlides.length - 1, index + 1)
+                      Math.min(howToUseSlides.length - 1, index + 1),
                     )
                   }
                   className="rounded-full bg-[#c9a45c] px-5 py-2 text-xs font-black text-[#140d0d] transition hover:bg-[#f4efe6]"
