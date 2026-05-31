@@ -215,6 +215,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   );
 
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef<number | null>(null);
   const slowThinkingTimerRef = useRef<number | null>(null);
@@ -231,6 +232,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading, typingMessageId, scrollToBottom]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+  }, [input]);
 
   useEffect(() => {
     setSuggestedQuestions(pickSuggestedQuestions(figure.questions, figure.slug));
@@ -560,7 +569,10 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       return;
     }
 
-    if (payload?.code === "MESSAGE_TOO_LONG" || payload?.code === "EMPTY_MESSAGE") {
+    if (
+      payload?.code === "MESSAGE_TOO_LONG" ||
+      payload?.code === "EMPTY_MESSAGE"
+    ) {
       const readableMessage =
         payload.message ?? "შეტყობინების გაგზავნა ვერ მოხერხდა.";
 
@@ -657,6 +669,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           slug: figure.slug,
           conversationId: conversationIdForRequest,
           chatMode,
+          webSearchEnabled,
           messages: updatedMessages.map((message) => ({
             role: message.role,
             text: message.text,
@@ -723,10 +736,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
       reader.releaseLock();
 
       if (activeRequestIdRef.current === requestId) {
-        if (
-          createdConversationIdInRequest &&
-          streamedText.trim().length === 0
-        ) {
+        if (createdConversationIdInRequest && streamedText.trim().length === 0) {
           try {
             await deleteConversationById(createdConversationIdInRequest, false);
           } catch (deleteError) {
@@ -797,8 +807,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     void sendMessage();
   }
 
-  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
+  function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       event.stopPropagation();
 
@@ -1033,8 +1043,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                   )}
 
                   <div
-                    className={`max-w-[82%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leading-6 sm:text-sm sm:leading-7 ${
-                      isUser
+                  className={`max-w-[82%] min-w-0 whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-xs leading-6 [overflow-wrap:anywhere] sm:text-sm sm:leading-7 ${                      isUser
                         ? "rounded-tr-md bg-[#c9a45c] font-bold text-[#140d0d]"
                         : "rounded-tl-md border border-[#f4efe6]/10 bg-[#f4efe6]/6 text-[#d9d0c5]"
                     }`}
@@ -1121,14 +1130,14 @@ export default function FigureChat({ figure }: { figure: Figure }) {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex items-end gap-3">
               <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModeMenuOpen((value) => !value)}
                   disabled={isLoading || isOpeningConversation}
                   title={chatModeDescriptions[chatMode]}
-                  className="h-full min-h-[46px] rounded-full border border-[#f4efe6]/10 bg-[#171010] px-3 text-[10px] font-black text-[#d8c08a] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-xs"
+                  className="min-h-[46px] rounded-full border border-[#f4efe6]/10 bg-[#171010] px-3 text-[10px] font-black text-[#d8c08a] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-xs"
                 >
                   {chatModeLabels[chatMode]} ▾
                 </button>
@@ -1161,10 +1170,27 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                 )}
               </div>
 
-              <input
+              <button
+                type="button"
+                onClick={() => setWebSearchEnabled((value) => !value)}
+                disabled={isLoading || isOpeningConversation}
+                title="დამატებითი წყაროებით პასუხი"
+                className={`hidden min-h-[46px] shrink-0 rounded-full border px-3 text-[10px] font-black transition disabled:cursor-not-allowed disabled:opacity-60 sm:inline-flex sm:items-center ${
+                  webSearchEnabled
+                    ? "border-[#c9a45c]/45 bg-[#c9a45c]/15 text-[#f4efe6]"
+                    : "border-[#f4efe6]/10 bg-[#171010] text-[#756b63] hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#d8c08a]"
+                }`}
+              >
+                წყაროებით
+              </button>
+
+              <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={handleInputKeyDown}
+                rows={1}
+                wrap="soft"
                 placeholder={
                   isLoading
                     ? "პასუხის გაჩერება შეგიძლია..."
@@ -1173,14 +1199,13 @@ export default function FigureChat({ figure }: { figure: Figure }) {
                       : "დაწერე კითხვა..."
                 }
                 disabled={isOpeningConversation}
-                className="min-w-0 flex-1 rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
-              />
+className="chat-input-textarea min-h-[46px] max-h-[220px] min-w-0 flex-1 resize-none overflow-hidden rounded-[1.4rem] border border-[#f4efe6]/10 bg-[#0e0b0b] px-4 py-3 text-xs leading-5 text-[#f4efe6] outline-none placeholder:text-[#756b63] focus:border-[#c9a45c]/40 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm sm:leading-6"              />
 
               <button
                 type="button"
                 onClick={handleSendClick}
                 disabled={authStatus === "loading" || isOpeningConversation}
-                className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm ${
+                className={`inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm ${
                   isLoading
                     ? "bg-[#5c1e26] text-[#f4efe6] hover:bg-[#7a2933]"
                     : "bg-[#f4efe6] text-[#140d0d] hover:bg-[#c9a45c]"

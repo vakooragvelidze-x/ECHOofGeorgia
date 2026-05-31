@@ -70,3 +70,13 @@ a {
     opacity: 0;
   }
 }
+
+
+.chat-input-textarea {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-input-textarea::-webkit-scrollbar {
+  display: none;
+}

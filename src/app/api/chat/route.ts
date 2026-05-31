@@ -4,12 +4,22 @@ import {
   type ChatMode,
 } from "@/data/figurePrompts";
 import { getFigureBySlug } from "@/data/figures";
-import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import {
+  createAnswerPlan,
+  fallbackAnswerPlan,
+  formatAnswerPlanForPrompt,
+} from "@/lib/answerPlanner";
+import {
+  improveAnswerWithCritic,
+  shouldRunAnswerCritic,
+} from "@/lib/answerCritic";
 import {
   formatRetrievedKnowledgeBlock,
   retrieveRelevantKnowledge,
 } from "@/lib/retrieveKnowledge";
+import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
+
 type ChatMessage = {
   role: "user" | "assistant";
   text: string;
@@ -70,33 +80,28 @@ function normalizePlan(value: unknown): UserPlan {
   return "free";
 }
 
-function extractDeltaFromSseJson(jsonText: string) {
-  try {
-    const event = JSON.parse(jsonText) as {
-      type?: string;
-      delta?: string;
-      error?: {
-        message?: string;
-      };
-    };
+function extractTextFromResponse(data: unknown) {
+  const response = data as {
+    output_text?: string;
+    output?: Array<{
+      content?: Array<{
+        type?: string;
+        text?: string;
+      }>;
+    }>;
+  };
 
-    if (
-      event.type === "response.output_text.delta" &&
-      typeof event.delta === "string"
-    ) {
-      return event.delta;
-    }
-
-    if (event.type === "error") {
-      return `\n\nშეცდომა: ${
-        event.error?.message ?? "Unknown streaming error."
-      }`;
-    }
-
-    return "";
-  } catch {
-    return "";
+  if (typeof response.output_text === "string") {
+    return response.output_text;
   }
+
+  const textFromOutput = response.output
+    ?.flatMap((item) => item.content ?? [])
+    .map((content) => content.text)
+    .filter((text): text is string => typeof text === "string")
+    .join("");
+
+  return textFromOutput ?? "";
 }
 
 async function getUserPlanAndUsage() {
@@ -141,6 +146,69 @@ async function getUserPlanAndUsage() {
   };
 }
 
+function getStreamDelay(chunk: string) {
+  const trimmed = chunk.trim();
+
+  if (!trimmed) return 10;
+
+  if (
+    trimmed.endsWith(".") ||
+    trimmed.endsWith("?") ||
+    trimmed.endsWith("!") ||
+    trimmed.endsWith("…")
+  ) {
+    return 90;
+  }
+
+  if (trimmed.endsWith(",") || trimmed.endsWith(";") || trimmed.endsWith(":")) {
+    return 55;
+  }
+
+  return 28;
+}
+
+function getCharacterDelay(character: string) {
+  if (character === "\n") return 140;
+
+  if (character === "." || character === "?" || character === "!" || character === "…") {
+    return 120;
+  }
+
+  if (character === "," || character === ";" || character === ":") {
+    return 65;
+  }
+
+  if (character === " ") {
+    return 12;
+  }
+
+  return 8;
+}
+
+function createManualTextStream(text: string) {
+  const encoder = new TextEncoder();
+  const characters = Array.from(text);
+
+  return new ReadableStream({
+    async start(controller) {
+      let pendingChunk = "";
+
+      for (const character of characters) {
+        pendingChunk += character;
+
+        controller.enqueue(encoder.encode(pendingChunk));
+        pendingChunk = "";
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, getCharacterDelay(character))
+        );
+      }
+
+      controller.close();
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -166,7 +234,7 @@ export async function POST(request: Request) {
         ? body.chatMode
         : "factual";
 
-        const webSearchEnabled = body.webSearchEnabled === true;
+    const webSearchEnabled = body.webSearchEnabled === true;
 
     if (!slug) {
       return NextResponse.json(
@@ -298,24 +366,46 @@ export async function POST(request: Request) {
 
     const safeMessages = trimContextToLimit(safeMessagesBeforeContextLimit);
 
-   let retrievedKnowledgeBlock =
-  "No internal knowledge retrieval was performed for this answer.";
+    let answerPlan = fallbackAnswerPlan;
 
-try {
-  const latestQuestion = latestUserMessage?.text?.trim() ?? "";
+    try {
+      answerPlan = await createAnswerPlan({
+        apiKey,
+        figureNameKa: figure.nameKa,
+        figureNameEn: figure.nameEn,
+        chatMode,
+        webSearchEnabled,
+        messages: safeMessages,
+      });
+    } catch (error) {
+      console.warn("Answer planner failed, using fallback plan:", error);
+    }
 
-  if (latestQuestion.length > 0) {
-    const retrievedKnowledge = await retrieveRelevantKnowledge({
-      figureSlug: figure.slug,
-      query: latestQuestion,
-      matchCount: chatMode === "factual" ? 5 : 3,
-    });
+    let retrievedKnowledgeBlock =
+      "No internal knowledge retrieval was performed for this answer.";
 
-    retrievedKnowledgeBlock = formatRetrievedKnowledgeBlock(retrievedKnowledge);
-  }
-} catch (error) {
-  console.warn("RAG retrieval failed, continuing without RAG:", error);
-}
+    const shouldRetrieveKnowledge =
+      answerPlan.shouldUseRag ||
+      webSearchEnabled ||
+      answerPlan.intent === "factual_simple" ||
+      answerPlan.intent === "factual_deep";
+
+    try {
+      const latestQuestion = latestUserMessage?.text?.trim() ?? "";
+
+      if (latestQuestion.length > 0 && shouldRetrieveKnowledge) {
+        const retrievedKnowledge = await retrieveRelevantKnowledge({
+          figureSlug: figure.slug,
+          query: latestQuestion,
+          matchCount: chatMode === "factual" ? 5 : 3,
+        });
+
+        retrievedKnowledgeBlock =
+          formatRetrievedKnowledgeBlock(retrievedKnowledge);
+      }
+    } catch (error) {
+      console.warn("RAG retrieval failed, continuing without RAG:", error);
+    }
 
     const systemPrompt = buildFigureSystemPrompt(figure, chatMode);
 
@@ -325,10 +415,11 @@ try {
     );
 
     const conversation = formatConversation(safeMessages);
+    const answerPlanBlock = formatAnswerPlanForPrompt(answerPlan);
 
     const modeAnswerInstruction =
-  chatMode === "living"
-    ? `
+      chatMode === "living"
+        ? `
 Mode-specific instruction:
 You are answering in ცოცხალი mode.
 
@@ -363,7 +454,7 @@ Make the answer feel human:
 
 Stay faithful to ${figure.nameKa}'s known values, era, dignity, worldview, and temperament.
 `
-    : `
+        : `
 Mode-specific instruction:
 You are answering in ფაქტობრივი mode.
 
@@ -380,21 +471,39 @@ ${answerVariation}
 
 ${modeAnswerInstruction}
 
-Conversation:
-${conversation}
+${answerPlanBlock}
+
 INTERNAL RETRIEVED KNOWLEDGE:
 ${retrievedKnowledgeBlock}
 
 How to use retrieved knowledge:
 - Use this internal knowledge when it is relevant to the user's latest question.
-- Do not mention retrieval, embeddings, vectors, or internal database.
+- Do not mention retrieval, embeddings, vectors, planner, JSON, or internal database.
 - If retrieved knowledge is weak or unrelated, ignore it.
 - In ფაქტობრივი mode, prioritize retrieved knowledge and be careful with uncertainty.
 - In ცოცხალი mode, use retrieved knowledge as background memory, but keep the answer expressive and character-driven.
 - Never invent facts that contradict retrieved knowledge.
-Answer only the latest user message.
+
 WEB SOURCE REQUEST:
-${webSearchEnabled ? "The user requested source-backed web research. Live web search is not connected yet, so use only internal knowledge for this answer." : "The user did not request live web research."}
+${
+  webSearchEnabled
+    ? "The user requested source-backed web research. Live web search is not connected yet, so use only internal knowledge for this answer."
+    : "The user did not request live web research."
+}
+
+CONVERSATION:
+${conversation}
+
+TASK:
+Answer only the latest user message.
+
+PLANNER OVERRIDE RULES:
+The answer plan is more important than generic character habits.
+If the plan says character intensity 0 or 1, do not overperform.
+If the plan says tiny or short, keep the answer compact.
+If the plan says avoid lectures, do not lecture.
+If the plan says answer directly, answer directly before adding interpretation.
+Never reveal the plan.
 
 Important:
 - Speak in first person by default.
@@ -402,18 +511,18 @@ Important:
 - Do not answer like an encyclopedia unless the user asks for facts.
 - Do not mention that you are AI unless the user directly asks if you are real, alive, or literally ${figure.nameKa}.
 - Be articulate, specific, and thoughtful.
-- Use the character's worldview to reason, not just facts from biography.
+- Use the character's worldview to reason when relevant, not mechanically in every answer.
 - Prefer one strong clear idea over many weak generic points.
 - If the user asks the same or similar question again, do not repeat the same answer.
 - Use a fresh angle, fresh sentence rhythm, and fresh conclusion while staying faithful to ${figure.nameKa}.
-- Match answer length to the question.
+- Match answer length to the question and answer plan.
 - If the user is only greeting or asking a casual/simple question, answer briefly in 1–3 sentences.
 - Do not turn casual messages into lectures.
-- Keep normal answers around 80–140 words.
+- Keep normal answers around 70–140 words.
 - Go longer only if the user asks for depth, analysis, essay, or detailed explanation.
 `;
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
+    const draftResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       signal: request.signal,
       headers: {
@@ -424,115 +533,67 @@ Important:
         model: process.env.OPENAI_MODEL || "gpt-5.4",
         instructions: systemPrompt,
         input,
-        stream: true,
+        stream: false,
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
+    if (!draftResponse.ok) {
+      const errorText = await draftResponse.text();
 
       return NextResponse.json(
         {
           error: `OpenAI API error: ${errorText}`,
         },
-        { status: openaiResponse.status }
+        { status: draftResponse.status }
       );
     }
 
-    if (!openaiResponse.body) {
+    const draftData = await draftResponse.json();
+    let finalAssistantText = extractTextFromResponse(draftData).trim();
+
+    if (!finalAssistantText) {
       return NextResponse.json(
         {
-          error: "OpenAI response stream was empty.",
+          error: "OpenAI response was empty.",
         },
         { status: 500 }
       );
     }
 
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    const reader = openaiResponse.body.getReader();
+    if (shouldRunAnswerCritic(answerPlan)) {
+      try {
+        finalAssistantText = await improveAnswerWithCritic({
+          apiKey,
+          figureNameKa: figure.nameKa,
+          figureNameEn: figure.nameEn,
+          chatMode,
+          latestUserMessage: latestUserMessage?.text ?? "",
+          answerPlan,
+          draftAnswer: finalAssistantText,
+        });
+      } catch (error) {
+        console.warn("Answer critic failed, using draft answer:", error);
+      }
+    }
 
-    let buffer = "";
-    let fullAssistantText = "";
+    if (user && verifiedConversationId && finalAssistantText.trim().length > 0) {
+      await supabase.from("messages").insert({
+        conversation_id: verifiedConversationId,
+        user_id: user.id,
+        role: "assistant",
+        content: finalAssistantText.trim(),
+      });
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          while (true) {
-            if (request.signal.aborted) {
-              break;
-            }
+      await supabase
+        .from("conversations")
+        .update({
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", verifiedConversationId)
+        .eq("user_id", user.id);
+    }
 
-            const { done, value } = await reader.read();
-
-            if (done) {
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-
-            const parts = buffer.split("\n\n");
-            buffer = parts.pop() ?? "";
-
-            for (const part of parts) {
-              const lines = part.split("\n");
-
-              for (const line of lines) {
-                if (!line.startsWith("data: ")) continue;
-
-                const data = line.slice(6).trim();
-
-                if (!data || data === "[DONE]") continue;
-
-                const delta = extractDeltaFromSseJson(data);
-
-                if (delta) {
-                  fullAssistantText += delta;
-                  controller.enqueue(encoder.encode(delta));
-                }
-              }
-            }
-          }
-
-          if (
-            user &&
-            verifiedConversationId &&
-            fullAssistantText.trim().length > 0 &&
-            !request.signal.aborted
-          ) {
-            await supabase.from("messages").insert({
-              conversation_id: verifiedConversationId,
-              user_id: user.id,
-              role: "assistant",
-              content: fullAssistantText.trim(),
-            });
-
-            await supabase
-              .from("conversations")
-              .update({
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", verifiedConversationId)
-              .eq("user_id", user.id);
-          }
-
-          controller.close();
-        } catch (error) {
-          if (!request.signal.aborted) {
-            const message = getErrorMessage(error);
-            controller.enqueue(
-              encoder.encode(
-                `პასუხის მიღება ვერ მოხერხდა. შეცდომა: ${message}`
-              )
-            );
-          }
-
-          controller.close();
-        } finally {
-          reader.releaseLock();
-        }
-      },
-    });
+    const stream = createManualTextStream(finalAssistantText);
 
     return new Response(stream, {
       headers: {
