@@ -7,36 +7,77 @@ export async function GET(request: Request) {
   const origin = requestUrl.origin;
   const next = requestUrl.searchParams.get("next") ?? "/";
 
-  if (code) {
-    const supabase = await createClient();
+  if (!code) {
+    return NextResponse.redirect(`${origin}/login?error=oauth`);
+  }
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const supabase = await createClient();
 
-    if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+    code
+  );
 
-      if (user) {
-        const fullName =
-          typeof user.user_metadata?.full_name === "string"
-            ? user.user_metadata.full_name
-            : typeof user.user_metadata?.name === "string"
-              ? user.user_metadata.name
-              : null;
+  if (exchangeError) {
+    console.error("OAuth exchange error:", exchangeError);
+    return NextResponse.redirect(`${origin}/login?error=oauth`);
+  }
 
-        await supabase.from("profiles").upsert({
-          id: user.id,
-          email: user.email ?? null,
-          full_name: fullName,
-          plan: "free",
-          role: "user",
-        });
-      }
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-      return NextResponse.redirect(`${origin}${next}`);
+  if (userError || !user) {
+    console.error("OAuth user lookup error:", userError);
+    return NextResponse.redirect(`${origin}/login?error=oauth`);
+  }
+
+  const email = user.email ?? "";
+
+  const fullName =
+    typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name
+      : typeof user.user_metadata?.name === "string"
+        ? user.user_metadata.name
+        : null;
+
+  const { data: existingProfile, error: profileLookupError } = await supabase
+    .from("profiles")
+    .select("id, role, plan")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileLookupError) {
+    console.error("OAuth profile lookup error:", profileLookupError);
+    return NextResponse.redirect(`${origin}${next}`);
+  }
+
+  if (existingProfile) {
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        email,
+        full_name: fullName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      console.error("OAuth safe profile update error:", updateError);
+    }
+  } else {
+    const { error: insertError } = await supabase.from("profiles").insert({
+      id: user.id,
+      email,
+      full_name: fullName,
+      role: "user",
+      plan: "free",
+    });
+
+    if (insertError) {
+      console.error("OAuth profile insert error:", insertError);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth`);
+  return NextResponse.redirect(`${origin}${next}`);
 }

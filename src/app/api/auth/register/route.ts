@@ -46,15 +46,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    if (data.user) {
-      await supabase.from("profiles").upsert({
-        id: data.user.id,
-        email,
-        full_name: fullName || null,
-        plan: "free",
-        role: "user",
-      });
-    }
+    
 
     return NextResponse.json({ success: true });
   } catch (error) {
