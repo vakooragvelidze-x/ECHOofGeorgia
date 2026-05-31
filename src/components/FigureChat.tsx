@@ -310,6 +310,50 @@ function getThinkingCues(message: string, figureSlug: string): ThinkingCues {
   };
 }
 
+
+
+function getHowToUseSlides() {
+  return [
+    {
+      eyebrow: "ნაბიჯი 1",
+      title: "აირჩიე ისტორიული ფიგურა",
+      description:
+        "გახსენი პერსონაჟის გვერდი და დაიწყე საუბარი ისე, თითქოს ცოცხალ დიალოგში ხარ.",
+      highlight: "ფიგურის სახელი და მოკლე აღწერა",
+    },
+    {
+      eyebrow: "ნაბიჯი 2",
+      title: "აირჩიე საუბრის რეჟიმი",
+      description:
+        "ფაქტობრივი რეჟიმი ფრთხილია ისტორიულ დეტალებთან. ცოცხალი საუბარი უფრო ემოციური და ინტერპრეტაციულია.",
+      highlight: "ფაქტობრივი / ცოცხალი ღილაკი",
+    },
+    {
+      eyebrow: "ნაბიჯი 3",
+      title: "დასვი კითხვა ბუნებრივად",
+      description:
+        "შეგიძლია ჰკითხო აზრი, რჩევა, ისტორიული ფაქტი, განმარტება ან სთხოვო უფრო ღრმა განხილვა.",
+      highlight: "კითხვის ჩაწერის ველი",
+    },
+    {
+      eyebrow: "ნაბიჯი 4",
+      title: "შეინახე და გააგრძელე საუბრები",
+      description:
+        "შესვლის შემდეგ საუბრები ინახება. მობილურზე მენიუს ღილაკით გახსნი ძველ დიალოგებს.",
+      highlight: "საუბრები / მენიუს ღილაკი",
+    },
+    {
+      eyebrow: "ნაბიჯი 5",
+      title: "გამოიყენე სწავლისთვის და ფიქრისთვის",
+      description:
+        "პასუხები შეგიძლია გამოიყენო იდეების გასაგებად, ტექსტის დასაწყობად და რთული თემების მარტივად ასახსნელად.",
+      highlight: "პასუხები და შემდგომი კითხვები",
+    },
+  ];
+}
+
+const HOW_TO_USE_STORAGE_KEY = "echo_georgia_how_to_use_seen";
+
 export default function FigureChat({ figure }: { figure: Figure }) {
   const initialAssistantMessage: Message = {
     id: 1,
@@ -336,6 +380,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isHowToUseOpen, setIsHowToUseOpen] = useState(false);
+  const [howToSlideIndex, setHowToSlideIndex] = useState(0);
   const [savedConversations, setSavedConversations] = useState<
     SavedConversation[]
   >([]);
@@ -392,6 +438,20 @@ export default function FigureChat({ figure }: { figure: Figure }) {
   useEffect(() => {
     setSuggestedQuestions(pickSuggestedQuestions(figure.questions, figure.slug));
   }, [figure.questions, figure.slug]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hasSeenHowToUse = window.localStorage.getItem(HOW_TO_USE_STORAGE_KEY);
+
+    if (!hasSeenHowToUse) {
+      const timer = window.setTimeout(() => {
+        setIsHowToUseOpen(true);
+      }, 650);
+
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -714,6 +774,15 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     } finally {
       setIsOpeningConversation(false);
     }
+  }
+
+  function closeHowToUse() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(HOW_TO_USE_STORAGE_KEY, "true");
+    }
+
+    setIsHowToUseOpen(false);
+    setHowToSlideIndex(0);
   }
 
   function showGuestLimitNotice() {
@@ -1087,6 +1156,8 @@ export default function FigureChat({ figure }: { figure: Figure }) {
     !isOpeningConversation &&
     !limitNotice &&
     suggestedQuestions.length > 0;
+  const howToUseSlides = getHowToUseSlides();
+  const activeHowToSlide = howToUseSlides[howToSlideIndex] ?? howToUseSlides[0];
 
 
   function renderSidebarContent() {
@@ -1324,6 +1395,7 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           className="chat-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7"
         >
           <div className="mx-auto max-w-3xl space-y-4">
+
             {messages.map((message) => {
               const isUser = message.role === "user";
               const isTyping = typingMessageId === message.id;
@@ -1416,18 +1488,34 @@ export default function FigureChat({ figure }: { figure: Figure }) {
             )}
 
             {shouldShowSuggestedQuestions && (
-              <div className="mb-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-                {suggestedQuestions.map((question) => (
+              <div className="mb-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8f8378]">
+                    სცადე კითხვა
+                  </p>
+
                   <button
-                    key={question}
                     type="button"
-                    onClick={() => void sendMessage(question)}
-                    disabled={isLoading || isOpeningConversation}
-                    className="truncate rounded-full border border-[#f4efe6]/10 bg-[#f4efe6]/4 px-3 py-1.5 text-left text-[10px] font-semibold leading-4 text-[#b8aea3] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/10 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => setIsHowToUseOpen(true)}
+                    className="shrink-0 rounded-full border border-[#c9a45c]/20 bg-[#c9a45c]/8 px-3 py-1.5 text-[10px] font-black text-[#d8c08a] transition hover:bg-[#c9a45c]/14"
                   >
-                    {question}
+                    როგორ მუშაობს?
                   </button>
-                ))}
+                </div>
+
+                <div className="chat-scroll-area flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
+                  {suggestedQuestions.map((question) => (
+                    <button
+                      key={question}
+                      type="button"
+                      onClick={() => void sendMessage(question)}
+                      disabled={isLoading || isOpeningConversation}
+                      className="min-h-[54px] min-w-[240px] rounded-[1.15rem] border border-[#c9a45c]/18 bg-[#c9a45c]/8 px-4 py-3 text-left text-[11px] font-black leading-5 text-[#d8c08a] shadow-[inset_0_1px_0_rgba(244,239,230,0.04)] transition hover:border-[#c9a45c]/35 hover:bg-[#c9a45c]/14 hover:text-[#f4efe6] disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-0"
+                    >
+                      <span className="line-clamp-2">{question}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1522,6 +1610,204 @@ export default function FigureChat({ figure }: { figure: Figure }) {
           </div>
         </div>
       </div>
+
+      {isHowToUseOpen && activeHowToSlide && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-[#050303]/78 px-4 py-5 backdrop-blur-md">
+          <div className="relative flex max-h-[calc(100vh-40px)] w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-[#f4efe6]/12 bg-[radial-gradient(circle_at_18%_0%,rgba(201,164,92,0.20),transparent_32%),linear-gradient(180deg,rgba(23,16,16,0.98),rgba(12,8,8,0.98))] shadow-[0_35px_110px_rgba(0,0,0,0.72)]">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#f4efe6]/8 px-4 py-4 sm:px-6">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#c9a45c]">
+                  სწრაფი გზამკვლევი
+                </p>
+                <h2 className="mt-1 text-xl font-black tracking-[-0.04em] text-[#f4efe6] sm:text-2xl">
+                  როგორ გამოიყენო Echo Georgia
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeHowToUse}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#f4efe6]/10 bg-[#0e0b0b]/80 text-[#f4efe6] transition hover:bg-[#f4efe6]/10 active:scale-95"
+                aria-label="დახურვა"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6">
+              <div className="grid gap-5 lg:grid-cols-[1fr_1.05fr] lg:items-center">
+                <div>
+                  <div className="inline-flex rounded-full border border-[#c9a45c]/20 bg-[#c9a45c]/10 px-3 py-1 text-[11px] font-black text-[#d8c08a]">
+                    {activeHowToSlide.eyebrow}
+                  </div>
+
+                  <h3 className="mt-4 text-2xl font-black tracking-[-0.045em] text-[#f4efe6] sm:text-3xl">
+                    {activeHowToSlide.title}
+                  </h3>
+
+                  <p className="mt-3 text-sm leading-7 text-[#b8aea3]">
+                    {activeHowToSlide.description}
+                  </p>
+
+                  <div className="mt-5 rounded-2xl border border-[#c9a45c]/18 bg-[#c9a45c]/8 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#c9a45c]">
+                      ყურადღება მიაქციე
+                    </p>
+                    <p className="mt-1 text-sm font-bold leading-6 text-[#f4efe6]">
+                      {activeHowToSlide.highlight}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.6rem] border border-[#f4efe6]/10 bg-[#0e0b0b]/70 p-3 shadow-[inset_0_1px_0_rgba(244,239,230,0.06)]">
+                  <div className="rounded-[1.25rem] border border-[#f4efe6]/8 bg-[#120d0d] p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#c9a45c]" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#8b2635]" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#f4efe6]/35" />
+                      </div>
+                      <span className="rounded-full bg-[#f4efe6]/6 px-2 py-1 text-[9px] font-black text-[#8f8378]">
+                        preview
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          howToSlideIndex === 0
+                            ? "border-[#c9a45c]/45 bg-[#c9a45c]/12"
+                            : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <StableAssistantAvatar src={avatarImage} alt={figure.nameKa} />
+                          <div className="min-w-0">
+                            <div className="h-3 w-28 rounded-full bg-[#f4efe6]/30" />
+                            <div className="mt-2 h-2 w-20 rounded-full bg-[#c9a45c]/35" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          howToSlideIndex === 1
+                            ? "border-[#c9a45c]/45 bg-[#c9a45c]/12"
+                            : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
+                        }`}
+                      >
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full border border-[#f4efe6]/10 px-3 py-1.5 text-[10px] font-black text-[#d8c08a]">
+                            ფაქტობრივი
+                          </span>
+                          <span className="rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 px-3 py-1.5 text-[10px] font-black text-[#f4efe6]">
+                            ცოცხალი
+                          </span>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          howToSlideIndex === 2
+                            ? "border-[#c9a45c]/45 bg-[#c9a45c]/12"
+                            : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
+                        }`}
+                      >
+                        <div className="h-10 rounded-full border border-[#f4efe6]/10 bg-[#0b0707] px-4 py-3">
+                          <div className="h-2 w-2/3 rounded-full bg-[#f4efe6]/25" />
+                        </div>
+                      </div>
+
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          howToSlideIndex === 3
+                            ? "border-[#c9a45c]/45 bg-[#c9a45c]/12"
+                            : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-9 w-9 place-items-center rounded-full border border-[#c9a45c]/25 bg-[#c9a45c]/10 text-[#d8c08a]">
+                            <Menu size={15} />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-2 w-32 rounded-full bg-[#f4efe6]/25" />
+                            <div className="h-2 w-24 rounded-full bg-[#f4efe6]/12" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          howToSlideIndex === 4
+                            ? "border-[#c9a45c]/45 bg-[#c9a45c]/12"
+                            : "border-[#f4efe6]/8 bg-[#f4efe6]/4"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="h-2 w-full rounded-full bg-[#f4efe6]/20" />
+                          <div className="h-2 w-5/6 rounded-full bg-[#f4efe6]/14" />
+                          <div className="h-2 w-2/3 rounded-full bg-[#c9a45c]/25" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-center gap-2">
+                {howToUseSlides.map((slide, index) => (
+                  <button
+                    key={slide.eyebrow}
+                    type="button"
+                    onClick={() => setHowToSlideIndex(index)}
+                    className={`h-2.5 rounded-full transition ${
+                      index === howToSlideIndex
+                        ? "w-8 bg-[#c9a45c]"
+                        : "w-2.5 bg-[#f4efe6]/18 hover:bg-[#f4efe6]/35"
+                    }`}
+                    aria-label={`სლაიდი ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[#f4efe6]/8 px-4 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={() =>
+                  setHowToSlideIndex((index) => Math.max(0, index - 1))
+                }
+                disabled={howToSlideIndex === 0}
+                className="rounded-full border border-[#f4efe6]/10 px-4 py-2 text-xs font-black text-[#f4efe6] transition hover:bg-[#f4efe6]/6 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                უკან
+              </button>
+
+              {howToSlideIndex < howToUseSlides.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setHowToSlideIndex((index) =>
+                      Math.min(howToUseSlides.length - 1, index + 1)
+                    )
+                  }
+                  className="rounded-full bg-[#c9a45c] px-5 py-2 text-xs font-black text-[#140d0d] transition hover:bg-[#f4efe6]"
+                >
+                  შემდეგი
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={closeHowToUse}
+                  className="rounded-full bg-[#c9a45c] px-5 py-2 text-xs font-black text-[#140d0d] transition hover:bg-[#f4efe6]"
+                >
+                  დავიწყოთ
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 px-5 backdrop-blur-sm">
